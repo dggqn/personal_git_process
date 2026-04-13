@@ -2,7 +2,7 @@
   "name": "personal-git-process",
   "displayName": "Personal Git Process",
   "description": "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "jdx-plugin-01",
   "license": "MIT",
   "icon": "imgs/git.png",
