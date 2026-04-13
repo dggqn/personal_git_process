@@ -1,0 +1,53 @@
+{
+  "name": "personal-git-process",
+  "displayName": "Personal Git Process",
+  "description": "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
+  "version": "0.0.1",
+  "publisher": "your-publisher-name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-account/personal-git-process.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other",
+    "SCM"
+  ],
+  "activationEvents": [
+    "onCommand:personalGitProcess.syncWorkspace",
+    "onCommand:personalGitProcess.safePush",
+    "onCommand:personalGitProcess.openOutput"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "personalGitProcess.syncWorkspace",
+        "title": "Personal Git Process: Sync Workspace"
+      },
+      {
+        "command": "personalGitProcess.safePush",
+        "title": "Personal Git Process: Safe Push"
+      },
+      {
+        "command": "personalGitProcess.openOutput",
+        "title": "Personal Git Process: Open Output"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "tsc --noEmit -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.2",
+    "@vscode/vsce": "^3.2.1"
+  }
+}
