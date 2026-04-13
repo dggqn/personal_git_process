@@ -3,18 +3,18 @@
   "displayName": "Personal Git Process",
   "description": "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
   "version": "0.0.1",
-  "publisher": "your-publisher-name",
+  "publisher": "jdx-plugin-01",
   "license": "MIT",
+  "icon": "imgs/git.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-account/personal-git-process.git"
+    "url": "https://github.com/dggqn/personal-git-process.git"
   },
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
-    "Other",
-    "SCM"
+    "Other"
   ],
   "activationEvents": [
     "onCommand:personalGitProcess.syncWorkspace",
