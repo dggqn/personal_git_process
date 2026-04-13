@@ -1,5 +1,5 @@
-# Changelog
+# 更新日志
 
 ## 0.0.1
 
-- Initial MVP with `Sync Workspace`, `Safe Push`, and output logging.
+- 初始 MVP 版本，提供 `Sync Workspace`、`Safe Push` 和输出日志能力。
