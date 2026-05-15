@@ -1,169 +1,75 @@
 # Personal Git Process
 
-`Personal Git Process` 是一个面向个人使用场景的 VS Code Git 辅助插件。它不追求“全自动帮你处理一切”，而是把同步和推送过程拆成清晰、可确认的步骤，尽量减少误操作。
+`Personal Git Process` is a personal VS Code Git helper. It keeps risky Git steps explicit, and now includes an MVP for "local blocks": small pieces of code that you want to keep only on this machine.
 
-这个插件适合下面这类场景：
-
-- 你希望在 VS Code 里快速同步远端分支，但又不想静默执行危险操作
-- 你希望推送前自动检查“本地是否落后于远端”
-- 你希望在遇到未提交改动时，先明确处理 `stash`，而不是被流程悄悄改动工作区
-
-## 主要功能
-
-插件目前提供 3 个命令：
+## Commands
 
 - `Personal Git Process: Sync Workspace`
-  作用：先同步当前分支到上游，再恢复你本地的工作内容。
+  - Fetches remote updates, then rebases or merges the current branch.
+  - If the working tree is dirty, it asks before creating a stash.
 - `Personal Git Process: Safe Push`
-  作用：在推送前检查工作区和远端状态，避免把未同步的分支直接推上去。
+  - Blocks push when the working tree is dirty or the current branch is behind upstream.
+- `Personal Git Process: Protect Selection as Local Block`
+  - Saves the selected code as a local-only block in `.git/local-blocks/state.json`.
+  - The saved state lives inside `.git`, so it is local to this clone and is not committed.
+- `Personal Git Process: Apply Local Blocks`
+  - Replaces public code with the saved local-only code.
+- `Personal Git Process: Show Public Version`
+  - Replaces local-only code with the public version that should be committed.
+- `Personal Git Process: Safe Sync With Local Blocks`
+  - Shows public versions first, syncs remote updates, then reapplies local blocks.
+  - If a block can no longer be found, it stops and reports a conflict in the output panel.
+- `Personal Git Process: Install Local Block Pre-Commit Guard`
+  - Installs a local `.git/hooks/pre-commit` guard.
+  - The guard blocks commits when staged content still contains saved local-only text.
 - `Personal Git Process: Open Output`
-  作用：打开日志输出面板，查看插件实际执行了哪些 Git 命令。
+  - Opens the extension output channel.
 
-## 使用前提
+## Local Blocks MVP Flow
 
-在开始使用前，请先确认：
+1. Open a tracked file.
+2. Select the lines that should stay local to your machine.
+3. Run `Personal Git Process: Protect Selection as Local Block`.
+4. Enter a block id, for example `local-api-url`.
+5. The extension saves:
+   - `baseText`: the public version from `HEAD`
+   - `localText`: your selected local version
+   - file path, hashes, and small context hints
+6. Before committing, run `Personal Git Process: Show Public Version`, stage, and commit.
+7. After syncing or when you want your local settings back, run `Personal Git Process: Apply Local Blocks`.
 
-- 你的电脑已经安装 `git`
-- `git` 可以在终端中直接运行，也就是已经加入系统 `PATH`
-- 你当前在 VS Code 中打开的是一个 Git 仓库目录，或者一个包含 Git 仓库的工作区
+For normal update work, use `Personal Git Process: Safe Sync With Local Blocks`. It restores public text, runs the existing sync flow, then reapplies local text.
 
-如果插件运行时报错，优先打开 `Personal Git Process: Open Output` 查看详细日志。
+## Where Local Data Is Stored
 
-## 安装后如何使用
+Local block data is stored here inside each repository:
 
-安装插件后，你可以通过以下方式触发命令：
+```text
+.git/local-blocks/state.json
+```
 
-- 按 `Ctrl+Shift+P` 打开命令面板
-- 输入 `Personal Git Process`
-- 选择对应命令执行
+That file is not part of the project tree and is not pushed to the remote. If you clone the project again, local blocks must be created again.
 
-插件激活后，也会在状态栏显示一个 `Personal Git` 入口，点击后会直接执行 `Sync Workspace`。
+## Current MVP Limits
 
-## 命令说明
+- It works by text replacement, not by AST parsing.
+- It supports single continuous selections.
+- If the same selected text appears many times, the first matching occurrence is used.
+- If the public or local text cannot be found later, the block is marked as a conflict and the output panel explains which block failed.
+- This MVP does not yet use Git clean/smudge filters, so `Show Public Version` before staging is still the safest workflow.
 
-### 1. Sync Workspace
-
-这个命令用于“先同步，再继续工作”。它的执行逻辑如下：
-
-1. 检查当前打开的目录是不是 Git 仓库
-2. 检查当前分支名称
-3. 检查当前分支是否存在上游分支
-4. 让你选择同步策略：
-   - `Rebase`：把本地提交变基到远端最新提交之后，历史更线性
-   - `Merge`：合并远端更新，必要时生成 merge commit
-5. 如果发现本地有未提交改动，会弹窗询问你是否先创建 `stash`
-6. 执行 `git fetch --all --prune`
-7. 按你选择的策略执行同步
-8. 如果前面创建过 `stash`，则自动尝试恢复
-
-适合什么时候用：
-
-- 开始工作前，先把远端最新代码同步下来
-- 推送前，先确认当前分支已经和上游对齐
-- 本地有零散改动，但你又需要先同步远端更新
-
-需要注意：
-
-- 如果你拒绝创建 `stash`，同步流程会直接取消
-- 如果 `stash apply` 失败，插件会保留这个 `stash`，不会自动删除，方便你手动恢复
-- 如果当前是 `Detached HEAD`，该流程不支持，会直接报错
-
-### 2. Safe Push
-
-这个命令用于“确认安全后再推送”。它的执行逻辑如下：
-
-1. 检查当前目录是不是 Git 仓库
-2. 检查当前分支名称
-3. 检查工作区是否有未提交改动
-4. 如果工作区不干净，直接阻止推送
-5. 拉取远端最新信息
-6. 如果当前分支已设置上游分支，则比较 ahead / behind 状态
-7. 如果本地分支落后于上游分支，直接阻止推送，并提示你先同步
-8. 如果允许推送，会再次弹窗确认
-9. 最终执行 `git push`
-
-如果当前分支还没有设置上游分支：
-
-1. 插件会让你输入远端名称，默认是 `origin`
-2. 再次确认是否将当前分支推送并设置上游
-3. 执行 `git push --set-upstream <remote> <branch>`
-
-适合什么时候用：
-
-- 你准备推送代码，但想先确认不会把落后的分支直接推上去
-- 你想避免因为工作区还有未提交文件而误推送
-- 你第一次推送一个新分支，希望顺手把 upstream 一起设好
-
-### 3. Open Output
-
-这个命令用于查看日志。插件执行的 Git 命令和关键输出都会写入专用输出面板。
-
-建议在下面这些情况下打开它：
-
-- 想确认插件到底执行了哪些命令
-- 同步或推送失败，需要定位是哪一步报错
-- 想核对当前流程是不是按你的预期在执行
-
-## 一个典型使用流程
-
-如果你平时的习惯是“先同步，再开发，最后安全推送”，可以按这个顺序使用：
-
-1. 打开项目
-2. 执行 `Personal Git Process: Sync Workspace`
-3. 选择 `Rebase` 或 `Merge`
-4. 如果有本地未提交改动，先按提示决定是否创建 `stash`
-5. 完成开发后，确保文件都已提交
-6. 执行 `Personal Git Process: Safe Push`
-7. 确认推送提示后完成推送
-
-## 多工作区说明
-
-如果你打开的是多根工作区，插件不会默认猜测你要操作哪个仓库，而是会先弹出选择框，让你明确选择目标目录。
-
-## 设计原则
-
-这个插件的核心思路是：
-
-- 明确执行命令，而不是隐藏关键步骤
-- 在推送前先检查风险
-- 在可能覆盖或打断当前工作的地方先征求确认
-- 尽量保留可恢复现场，例如 `stash` 恢复失败时不自动删除
-
-插件通过本地 `git` 命令工作，不依赖 VS Code 内置 Git 扩展，因此它的行为更接近你在终端里手动执行 Git。
-
-## 开发
+## Development
 
 ```bash
 npm install
 npm run compile
 ```
 
-然后在 VS Code 中按 `F5` 启动 Extension Development Host 进行调试。
+Press `F5` in VS Code to launch an Extension Development Host.
 
-## 打包与发布
-
-本地打包：
+## Package
 
 ```bash
-npm install
 npm run compile
 npm run package
 ```
-
-发布新版本：
-
-```bash
-npm run publish
-```
-
-如果你习惯之前保留的别名，也可以使用：
-
-```bash
-npm run pubnish
-```
-
-## 已知限制
-
-- 要求系统中可直接调用 `git`
-- 不支持 `Detached HEAD` 场景
-- 目前更适合个人工作流，不是复杂团队协作流程管理工具
