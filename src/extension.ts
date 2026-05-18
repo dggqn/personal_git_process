@@ -54,6 +54,7 @@ const STATE_FILE = "state.json";
 const HOOKS_DIR = "hooks";
 const PRE_COMMIT_FILE = "pre-commit";
 const CONTEXT_LINES = 2;
+const ANCHOR_CHARS = 300;
 
 const output = vscode.window.createOutputChannel("Personal Git Process");
 
@@ -815,11 +816,6 @@ function mapWorkspaceSelectionToHeadRange(
     return { start: selectionOffset, end: selectionOffset + localText.length };
   }
 
-  if (headContent.includes(localText)) {
-    const start = headContent.indexOf(localText);
-    return { start, end: start + localText.length };
-  }
-
   const before = workspaceContent.slice(0, selectionOffset);
   const after = workspaceContent.slice(selectionOffset + localText.length);
   const beforeAnchor = getAnchor(before, "end");
@@ -836,13 +832,34 @@ function mapWorkspaceSelectionToHeadRange(
     }
   }
 
+  if (beforeAnchor && after.length === 0) {
+    const beforeIndex = headContent.lastIndexOf(beforeAnchor);
+    if (beforeIndex >= 0) {
+      return { start: beforeIndex + beforeAnchor.length, end: headContent.length };
+    }
+  }
+
+  if (afterAnchor && before.length === 0) {
+    const afterIndex = headContent.indexOf(afterAnchor);
+    if (afterIndex >= 0) {
+      return { start: 0, end: afterIndex };
+    }
+  }
+
+  if (headContent.includes(localText)) {
+    const start = headContent.indexOf(localText);
+    return { start, end: start + localText.length };
+  }
+
   return undefined;
 }
 
 function getAnchor(text: string, side: "start" | "end"): string {
-  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
-  const selected = side === "start" ? lines.slice(0, CONTEXT_LINES) : lines.slice(-CONTEXT_LINES);
-  return selected.join("\n");
+  if (side === "start") {
+    return text.slice(0, ANCHOR_CHARS);
+  }
+
+  return text.slice(Math.max(0, text.length - ANCHOR_CHARS));
 }
 
 async function installPreCommitGuard(repoPath: string): Promise<void> {
