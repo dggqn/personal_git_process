@@ -2,7 +2,7 @@
   "name": "personal-git-process",
   "displayName": "Personal Git Process",
   "description": "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "jdx-plugin-01",
   "license": "MIT",
   "icon": "imgs/git.png",
@@ -68,7 +68,7 @@
     "watch": "tsc -watch -p ./",
     "lint": "tsc --noEmit -p ./",
     "package": "vsce package",
-    "publish": "vsce publish patch",
+    "publish": "vsce publish",
     "pubnish": "npm run publish"
   },
   "devDependencies": {
