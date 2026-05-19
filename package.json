@@ -2,7 +2,7 @@
     "name": "personal-git-process",
     "displayName": "Personal Git Process",
     "description": "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "publisher": "jdx-plugin-01",
     "license": "MIT",
     "icon": "imgs/git.png",
@@ -25,10 +25,34 @@
         "onCommand:personalGitProcess.safeSyncLocalBlocks",
         "onCommand:personalGitProcess.installLocalBlockFilter",
         "onCommand:personalGitProcess.installPreCommitGuard",
+        "onCommand:personalGitProcess.refreshLocalBlocks",
+        "onCommand:personalGitProcess.revealLocalBlock",
+        "onCommand:personalGitProcess.applyLocalBlock",
+        "onCommand:personalGitProcess.showPublicBlock",
+        "onCommand:personalGitProcess.updateLocalBlockFromSelection",
+        "onCommand:personalGitProcess.deleteLocalBlock",
+        "onView:personalGitProcess.localBlocks",
         "onCommand:personalGitProcess.openOutput"
     ],
     "main": "./out/extension.js",
     "contributes": {
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "personalGitProcess",
+                    "title": "Personal Git",
+                    "icon": "imgs/personal-git.svg"
+                }
+            ]
+        },
+        "views": {
+            "personalGitProcess": [
+                {
+                    "id": "personalGitProcess.localBlocks",
+                    "name": "Local Blocks"
+                }
+            ]
+        },
         "commands": [
             {
                 "command": "personalGitProcess.syncWorkspace",
@@ -63,10 +87,76 @@
                 "title": "Personal Git Process: Install Local Block Pre-Commit Guard"
             },
             {
+                "command": "personalGitProcess.refreshLocalBlocks",
+                "title": "Personal Git Process: Refresh Local Blocks",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "personalGitProcess.revealLocalBlock",
+                "title": "Personal Git Process: Reveal Local Block",
+                "icon": "$(go-to-file)"
+            },
+            {
+                "command": "personalGitProcess.applyLocalBlock",
+                "title": "Personal Git Process: Apply This Local Block",
+                "icon": "$(home)"
+            },
+            {
+                "command": "personalGitProcess.showPublicBlock",
+                "title": "Personal Git Process: Show Public Version for This Block",
+                "icon": "$(globe)"
+            },
+            {
+                "command": "personalGitProcess.updateLocalBlockFromSelection",
+                "title": "Personal Git Process: Update Local Block From Selection",
+                "icon": "$(edit)"
+            },
+            {
+                "command": "personalGitProcess.deleteLocalBlock",
+                "title": "Personal Git Process: Delete Local Block",
+                "icon": "$(trash)"
+            },
+            {
                 "command": "personalGitProcess.openOutput",
                 "title": "Personal Git Process: Open Output"
             }
-        ]
+        ],
+        "menus": {
+            "view/title": [
+                {
+                    "command": "personalGitProcess.refreshLocalBlocks",
+                    "when": "view == personalGitProcess.localBlocks",
+                    "group": "navigation"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "personalGitProcess.revealLocalBlock",
+                    "when": "view == personalGitProcess.localBlocks && viewItem == localBlock",
+                    "group": "inline"
+                },
+                {
+                    "command": "personalGitProcess.applyLocalBlock",
+                    "when": "view == personalGitProcess.localBlocks && viewItem == localBlock",
+                    "group": "1_switch"
+                },
+                {
+                    "command": "personalGitProcess.showPublicBlock",
+                    "when": "view == personalGitProcess.localBlocks && viewItem == localBlock",
+                    "group": "1_switch"
+                },
+                {
+                    "command": "personalGitProcess.updateLocalBlockFromSelection",
+                    "when": "view == personalGitProcess.localBlocks && viewItem == localBlock",
+                    "group": "2_modify"
+                },
+                {
+                    "command": "personalGitProcess.deleteLocalBlock",
+                    "when": "view == personalGitProcess.localBlocks && viewItem == localBlock",
+                    "group": "9_delete"
+                }
+            ]
+        }
     },
     "scripts": {
         "compile": "tsc -p ./",

@@ -48,6 +48,28 @@ interface RestoreResult {
   conflicts: number;
 }
 
+type LocalBlockTreeStatus = BlockStatus | "missing";
+type LocalBlockTreeNodeKind = "repository" | "file" | "block";
+type SingleBlockActionResult = "changed" | "unchanged" | "conflict";
+
+interface LocalBlockTreeNode {
+  kind: LocalBlockTreeNodeKind;
+  repoPath: string;
+  file?: string;
+  block?: LocalBlock;
+  status?: LocalBlockTreeStatus;
+  blockCount?: number;
+}
+
+interface LocalBlockTarget {
+  repoPath: string;
+  block: LocalBlock;
+}
+
+interface LocalBlockQuickPickItem extends vscode.QuickPickItem {
+  target: LocalBlockTarget;
+}
+
 const STATE_VERSION = 1;
 const LOCAL_BLOCKS_DIR = ["local-blocks"];
 const STATE_FILE = "state.json";
@@ -63,6 +85,128 @@ const ATTRIBUTES_MARKER_BEGIN = "# personal-git-process local-blocks begin";
 const ATTRIBUTES_MARKER_END = "# personal-git-process local-blocks end";
 
 const output = vscode.window.createOutputChannel("Personal Git Process");
+let localBlocksProvider: LocalBlocksTreeDataProvider | undefined;
+
+class LocalBlocksTreeDataProvider implements vscode.TreeDataProvider<LocalBlockTreeNode> {
+  private readonly changeEmitter = new vscode.EventEmitter<LocalBlockTreeNode | undefined | null | void>();
+
+  readonly onDidChangeTreeData: vscode.Event<LocalBlockTreeNode | undefined | null | void> =
+    this.changeEmitter.event;
+
+  refresh(): void {
+    this.changeEmitter.fire();
+  }
+
+  async getChildren(element?: LocalBlockTreeNode): Promise<LocalBlockTreeNode[]> {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
+      return [];
+    }
+
+    if (!element) {
+      const repositories = await this.getRepositoriesWithBlocks();
+      if (folders.length === 1) {
+        return repositories.length > 0 ? this.getFileNodes(repositories[0].repoPath, repositories[0].state) : [];
+      }
+
+      return repositories.map(({ repoPath, state }) => ({
+        kind: "repository",
+        repoPath,
+        blockCount: state.blocks.length
+      }));
+    }
+
+    if (element.kind === "repository") {
+      const state = await tryReadLocalBlockState(element.repoPath);
+      return state ? this.getFileNodes(element.repoPath, state) : [];
+    }
+
+    if (element.kind === "file" && element.file) {
+      const state = await tryReadLocalBlockState(element.repoPath);
+      if (!state) {
+        return [];
+      }
+
+      const blocks = state.blocks.filter((block) => block.file === element.file);
+      return Promise.all(
+        blocks.map(async (block) => ({
+          kind: "block" as const,
+          repoPath: element.repoPath,
+          file: block.file,
+          block,
+          status: await getLocalBlockStatus(element.repoPath, block)
+        }))
+      );
+    }
+
+    return [];
+  }
+
+  getTreeItem(element: LocalBlockTreeNode): vscode.TreeItem {
+    if (element.kind === "repository") {
+      const item = new vscode.TreeItem(path.basename(element.repoPath), vscode.TreeItemCollapsibleState.Expanded);
+      item.description = `${element.blockCount ?? 0} block(s)`;
+      item.tooltip = element.repoPath;
+      item.iconPath = new vscode.ThemeIcon("repo");
+      item.contextValue = "localBlockRepo";
+      return item;
+    }
+
+    if (element.kind === "file") {
+      const item = new vscode.TreeItem(element.file ?? "", vscode.TreeItemCollapsibleState.Expanded);
+      item.description = `${element.blockCount ?? 0} block(s)`;
+      item.tooltip = path.join(element.repoPath, fromPosixPath(element.file ?? ""));
+      item.resourceUri = vscode.Uri.file(path.join(element.repoPath, fromPosixPath(element.file ?? "")));
+      item.contextValue = "localBlockFile";
+      return item;
+    }
+
+    const block = element.block;
+    const item = new vscode.TreeItem(block?.id ?? "local block", vscode.TreeItemCollapsibleState.None);
+    item.description = getLocalBlockStatusLabel(element.status);
+    item.tooltip = block
+      ? `${block.file}#${block.id}\nStatus: ${getLocalBlockStatusLabel(element.status)}\nUpdated: ${block.updatedAt}`
+      : undefined;
+    item.iconPath = getLocalBlockStatusIcon(element.status);
+    item.contextValue = "localBlock";
+    item.command = {
+      command: "personalGitProcess.revealLocalBlock",
+      title: "Reveal Local Block",
+      arguments: [element]
+    };
+    return item;
+  }
+
+  private async getRepositoriesWithBlocks(): Promise<Array<{ repoPath: string; state: LocalBlockState }>> {
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    const repositories: Array<{ repoPath: string; state: LocalBlockState }> = [];
+
+    for (const folder of folders) {
+      const state = await tryReadLocalBlockState(folder.uri.fsPath);
+      if (state && state.blocks.length > 0) {
+        repositories.push({ repoPath: folder.uri.fsPath, state });
+      }
+    }
+
+    return repositories;
+  }
+
+  private getFileNodes(repoPath: string, state: LocalBlockState): LocalBlockTreeNode[] {
+    const counts = new Map<string, number>();
+    for (const block of state.blocks) {
+      counts.set(block.file, (counts.get(block.file) ?? 0) + 1);
+    }
+
+    return [...counts.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([file, blockCount]) => ({
+        kind: "file",
+        repoPath,
+        file,
+        blockCount
+      }));
+  }
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -71,9 +215,16 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar.command = "personalGitProcess.syncWorkspace";
   statusBar.show();
 
+  localBlocksProvider = new LocalBlocksTreeDataProvider();
+  const localBlocksTree = vscode.window.createTreeView("personalGitProcess.localBlocks", {
+    treeDataProvider: localBlocksProvider,
+    showCollapseAll: true
+  });
+
   context.subscriptions.push(
     output,
     statusBar,
+    localBlocksTree,
     vscode.commands.registerCommand("personalGitProcess.syncWorkspace", () =>
       runCommand("Sync Workspace", syncWorkspace)
     ),
@@ -95,6 +246,22 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand("personalGitProcess.installPreCommitGuard", () =>
       runCommand("Install Local Block Pre-Commit Guard", installPreCommitGuardCommand)
+    ),
+    vscode.commands.registerCommand("personalGitProcess.refreshLocalBlocks", () => localBlocksProvider?.refresh()),
+    vscode.commands.registerCommand("personalGitProcess.revealLocalBlock", (node?: LocalBlockTreeNode) =>
+      runCommand("Reveal Local Block", () => revealLocalBlockCommand(node))
+    ),
+    vscode.commands.registerCommand("personalGitProcess.applyLocalBlock", (node?: LocalBlockTreeNode) =>
+      runCommand("Apply Local Block", () => applySingleLocalBlockCommand(node))
+    ),
+    vscode.commands.registerCommand("personalGitProcess.showPublicBlock", (node?: LocalBlockTreeNode) =>
+      runCommand("Show Public Block", () => showSinglePublicBlockCommand(node))
+    ),
+    vscode.commands.registerCommand("personalGitProcess.updateLocalBlockFromSelection", (node?: LocalBlockTreeNode) =>
+      runCommand("Update Local Block From Selection", () => updateLocalBlockFromSelectionCommand(node))
+    ),
+    vscode.commands.registerCommand("personalGitProcess.deleteLocalBlock", (node?: LocalBlockTreeNode) =>
+      runCommand("Delete Local Block", () => deleteLocalBlockCommand(node))
     ),
     vscode.commands.registerCommand("personalGitProcess.openOutput", () => output.show(true))
   );
@@ -177,6 +344,7 @@ async function protectSelectionAsLocalBlock(): Promise<void> {
   state.blocks.push(block);
   await writeLocalBlockState(repoPath, state);
   await installLocalBlockFilter(repoPath);
+  refreshLocalBlocksView();
 
   vscode.window.showInformationMessage(`Local block saved: ${relativeFile}#${block.id}`);
   log(`Local block saved: ${relativeFile}#${block.id}`);
@@ -191,6 +359,7 @@ async function applyLocalBlocksCommand(): Promise<void> {
   ensureOutputVisible();
   await ensureGitRepository(repoPath);
   const result = await applyLocalBlocks(repoPath);
+  refreshLocalBlocksView();
 
   if (result.conflicts > 0) {
     vscode.window.showWarningMessage(
@@ -211,6 +380,7 @@ async function showPublicVersionCommand(): Promise<void> {
   ensureOutputVisible();
   await ensureGitRepository(repoPath);
   const result = await restorePublicVersion(repoPath);
+  refreshLocalBlocksView();
 
   if (result.conflicts > 0) {
     vscode.window.showWarningMessage(
@@ -220,6 +390,187 @@ async function showPublicVersionCommand(): Promise<void> {
   }
 
   vscode.window.showInformationMessage(`Restored public version for ${result.restored} local block(s).`);
+}
+
+async function revealLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void> {
+  const target = await resolveLocalBlockTarget(node, { title: "Choose a local block to reveal" });
+  if (!target) {
+    return;
+  }
+
+  const filePath = path.join(target.repoPath, fromPosixPath(target.block.file));
+  const document = await vscode.workspace.openTextDocument(filePath);
+  const editor = await vscode.window.showTextDocument(document);
+  const location = findBlockLocation(document.getText(), target.block);
+
+  if (!location) {
+    vscode.window.showWarningMessage(
+      `Could not find ${target.block.file}#${target.block.id} in the current file content.`
+    );
+    return;
+  }
+
+  const range = new vscode.Range(
+    document.positionAt(location.index),
+    document.positionAt(location.index + location.currentText.length)
+  );
+  editor.selection = new vscode.Selection(range.start, range.end);
+  editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+}
+
+async function applySingleLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void> {
+  const target = await resolveLocalBlockTarget(node, { title: "Choose a local block to apply" });
+  if (!target) {
+    return;
+  }
+
+  ensureOutputVisible();
+  await ensureGitRepository(target.repoPath);
+  const result = await applySingleLocalBlock(target.repoPath, target.block);
+  refreshLocalBlocksView();
+
+  if (result === "conflict") {
+    vscode.window.showWarningMessage(`${target.block.file}#${target.block.id} needs manual handling.`);
+    return;
+  }
+
+  vscode.window.showInformationMessage(
+    result === "changed"
+      ? `Applied local block: ${target.block.file}#${target.block.id}`
+      : `Local block already applied: ${target.block.file}#${target.block.id}`
+  );
+}
+
+async function showSinglePublicBlockCommand(node?: LocalBlockTreeNode): Promise<void> {
+  const target = await resolveLocalBlockTarget(node, { title: "Choose a local block to show as public" });
+  if (!target) {
+    return;
+  }
+
+  ensureOutputVisible();
+  await ensureGitRepository(target.repoPath);
+  const result = await restoreSinglePublicBlock(target.repoPath, target.block);
+  refreshLocalBlocksView();
+
+  if (result === "conflict") {
+    vscode.window.showWarningMessage(`${target.block.file}#${target.block.id} needs manual handling.`);
+    return;
+  }
+
+  vscode.window.showInformationMessage(
+    result === "changed"
+      ? `Restored public version: ${target.block.file}#${target.block.id}`
+      : `Local block already public: ${target.block.file}#${target.block.id}`
+  );
+}
+
+async function updateLocalBlockFromSelectionCommand(node?: LocalBlockTreeNode): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage("Open a file and select the new local block content first.");
+    return;
+  }
+
+  if (editor.selection.isEmpty) {
+    vscode.window.showWarningMessage("Select the new local-only code before updating a local block.");
+    return;
+  }
+
+  const target = await resolveLocalBlockTarget(node, {
+    title: "Choose a local block to update",
+    activeFileOnly: true
+  });
+  if (!target) {
+    return;
+  }
+
+  const absoluteFile = editor.document.uri.fsPath;
+  const relativeFile = toPosixPath(path.relative(target.repoPath, absoluteFile));
+  if (relativeFile !== target.block.file) {
+    vscode.window.showWarningMessage(
+      `Selection must be inside ${target.block.file} before updating ${target.block.id}.`
+    );
+    return;
+  }
+
+  ensureOutputVisible();
+  await ensureGitRepository(target.repoPath);
+
+  const state = await readLocalBlockState(target.repoPath);
+  const block = findStoredBlock(state, target.block);
+  if (!block) {
+    vscode.window.showWarningMessage(`Local block no longer exists: ${target.block.file}#${target.block.id}`);
+    refreshLocalBlocksView();
+    return;
+  }
+
+  const newLocalText = editor.document.getText(editor.selection);
+  const documentLines = editor.document.getText().split(/\r?\n/);
+  block.localText = newLocalText;
+  block.localHash = hashText(newLocalText);
+  block.contextBefore = getContextBefore(documentLines, editor.selection.start.line);
+  block.contextAfter = getContextAfter(documentLines, editor.selection.end.line);
+  block.status = "local";
+  block.updatedAt = new Date().toISOString();
+
+  await writeLocalBlockState(target.repoPath, state);
+  await installLocalBlockFilter(target.repoPath);
+  refreshLocalBlocksView();
+
+  vscode.window.showInformationMessage(`Updated local block from selection: ${block.file}#${block.id}`);
+  log(`Updated local block from selection: ${block.file}#${block.id}`);
+}
+
+async function deleteLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void> {
+  const target = await resolveLocalBlockTarget(node, { title: "Choose a local block to delete" });
+  if (!target) {
+    return;
+  }
+
+  const choice = await vscode.window.showWarningMessage(
+    `Delete local block ${target.block.file}#${target.block.id}?`,
+    { modal: true },
+    "Restore Public and Delete",
+    "Keep File Content and Delete"
+  );
+
+  if (!choice) {
+    log("Delete local block cancelled.");
+    return;
+  }
+
+  ensureOutputVisible();
+  await ensureGitRepository(target.repoPath);
+
+  if (choice === "Restore Public and Delete") {
+    const restoreResult = await restoreSinglePublicBlock(target.repoPath, target.block);
+    if (restoreResult === "conflict") {
+      vscode.window.showWarningMessage(
+        `Delete stopped: ${target.block.file}#${target.block.id} could not be restored automatically.`
+      );
+      refreshLocalBlocksView();
+      return;
+    }
+  }
+
+  const state = await readLocalBlockState(target.repoPath);
+  const before = state.blocks.length;
+  state.blocks = state.blocks.filter(
+    (block) => !(block.file === target.block.file && block.id === target.block.id)
+  );
+
+  if (state.blocks.length === before) {
+    vscode.window.showWarningMessage(`Local block no longer exists: ${target.block.file}#${target.block.id}`);
+    refreshLocalBlocksView();
+    return;
+  }
+
+  await writeLocalBlockState(target.repoPath, state);
+  await installLocalBlockFilter(target.repoPath);
+  refreshLocalBlocksView();
+
+  vscode.window.showInformationMessage(`Deleted local block: ${target.block.file}#${target.block.id}`);
+  log(`Deleted local block: ${target.block.file}#${target.block.id}`);
 }
 
 async function installPreCommitGuardCommand(): Promise<void> {
@@ -243,6 +594,7 @@ async function installLocalBlockFilterCommand(): Promise<void> {
   ensureOutputVisible();
   await ensureGitRepository(repoPath);
   await installLocalBlockFilter(repoPath);
+  refreshLocalBlocksView();
   vscode.window.showInformationMessage("Local block Git filter installed.");
 }
 
@@ -331,6 +683,7 @@ async function safeSyncWithLocalBlocks(): Promise<void> {
 
       progress.report({ message: "Applying local blocks" });
       const applyResult = await applyLocalBlocks(repoPath);
+      refreshLocalBlocksView();
       if (applyResult.conflicts > 0) {
         vscode.window.showWarningMessage(
           `Sync completed, but ${applyResult.conflicts} local block(s) need manual handling. See output for details.`
@@ -784,6 +1137,68 @@ async function restorePublicVersion(repoPath: string): Promise<RestoreResult> {
   return { restored, conflicts };
 }
 
+async function applySingleLocalBlock(repoPath: string, targetBlock: LocalBlock): Promise<SingleBlockActionResult> {
+  return setSingleBlockVersion(repoPath, targetBlock, "local");
+}
+
+async function restoreSinglePublicBlock(repoPath: string, targetBlock: LocalBlock): Promise<SingleBlockActionResult> {
+  return setSingleBlockVersion(repoPath, targetBlock, "public");
+}
+
+async function setSingleBlockVersion(
+  repoPath: string,
+  targetBlock: LocalBlock,
+  version: "local" | "public"
+): Promise<SingleBlockActionResult> {
+  const state = await readLocalBlockState(repoPath);
+  const block = findStoredBlock(state, targetBlock);
+  if (!block) {
+    log(`Local block not found: ${targetBlock.file}#${targetBlock.id}`);
+    return "conflict";
+  }
+
+  const filePath = path.join(repoPath, fromPosixPath(block.file));
+  let text: string;
+
+  try {
+    text = await fs.readFile(filePath, "utf8");
+  } catch (error) {
+    block.status = "conflict";
+    block.updatedAt = new Date().toISOString();
+    await writeLocalBlockState(repoPath, state);
+    log(`Local block conflict ${block.file}#${block.id}: file cannot be read (${String(error)}).`);
+    return "conflict";
+  }
+
+  const location = findBlockLocation(text, block);
+  if (!location) {
+    block.status = "conflict";
+    block.updatedAt = new Date().toISOString();
+    await writeLocalBlockState(repoPath, state);
+    log(`Local block conflict ${block.file}#${block.id}: base/local text not found.`);
+    return "conflict";
+  }
+
+  const nextText = version === "local" ? block.localText : block.baseText;
+  const nextStatus: BlockStatus = version === "local" ? "local" : "public";
+  const alreadyDesired = location.currentText === nextText;
+  if (!alreadyDesired) {
+    const updated = replaceAt(text, location.index, location.currentText, nextText);
+    await fs.writeFile(filePath, updated, "utf8");
+  }
+
+  block.status = nextStatus;
+  block.updatedAt = new Date().toISOString();
+  await writeLocalBlockState(repoPath, state);
+  log(`${version === "local" ? "Applied local block" : "Restored public version"}: ${block.file}#${block.id}`);
+
+  return alreadyDesired ? "unchanged" : "changed";
+}
+
+function findStoredBlock(state: LocalBlockState, targetBlock: LocalBlock): LocalBlock | undefined {
+  return state.blocks.find((block) => block.file === targetBlock.file && block.id === targetBlock.id);
+}
+
 async function resolveBaseText(
   repoPath: string,
   relativeFile: string,
@@ -1133,7 +1548,7 @@ NODE
 async function readLocalBlockState(repoPath: string): Promise<LocalBlockState> {
   const statePath = await getStatePath(repoPath);
   try {
-    const raw = await fs.readFile(statePath, "utf8");
+    const raw = (await fs.readFile(statePath, "utf8")).replace(/^\uFEFF/, "");
     const parsed = JSON.parse(raw) as LocalBlockState;
     return {
       version: parsed.version || STATE_VERSION,
@@ -1141,6 +1556,22 @@ async function readLocalBlockState(repoPath: string): Promise<LocalBlockState> {
     };
   } catch {
     return { version: STATE_VERSION, blocks: [] };
+  }
+}
+
+async function tryReadLocalBlockState(repoPath: string): Promise<LocalBlockState | undefined> {
+  try {
+    await ensureGitRepository(repoPath);
+    const statePath = await getStatePath(repoPath);
+    try {
+      await fs.access(statePath);
+    } catch {
+      return undefined;
+    }
+
+    return await readLocalBlockState(repoPath);
+  } catch {
+    return undefined;
   }
 }
 
@@ -1177,6 +1608,121 @@ function findBlockLocation(text: string, block: LocalBlock): BlockLocation | und
   }
 
   return undefined;
+}
+
+async function getLocalBlockStatus(repoPath: string, block: LocalBlock): Promise<LocalBlockTreeStatus> {
+  const filePath = path.join(repoPath, fromPosixPath(block.file));
+
+  try {
+    const text = await fs.readFile(filePath, "utf8");
+    const location = findBlockLocation(text, block);
+    if (!location) {
+      return "conflict";
+    }
+
+    return location.matchedBy === "local" ? "local" : "public";
+  } catch {
+    return "missing";
+  }
+}
+
+function getLocalBlockStatusLabel(status: LocalBlockTreeStatus | undefined): string {
+  switch (status) {
+    case "local":
+      return "local";
+    case "public":
+      return "public";
+    case "missing":
+      return "missing";
+    case "conflict":
+      return "conflict";
+    default:
+      return "unknown";
+  }
+}
+
+function getLocalBlockStatusIcon(status: LocalBlockTreeStatus | undefined): vscode.ThemeIcon {
+  switch (status) {
+    case "local":
+      return new vscode.ThemeIcon("home");
+    case "public":
+      return new vscode.ThemeIcon("globe");
+    case "missing":
+      return new vscode.ThemeIcon("circle-slash", new vscode.ThemeColor("problemsErrorIcon.foreground"));
+    case "conflict":
+      return new vscode.ThemeIcon("warning", new vscode.ThemeColor("problemsWarningIcon.foreground"));
+    default:
+      return new vscode.ThemeIcon("question");
+  }
+}
+
+async function resolveLocalBlockTarget(
+  node: LocalBlockTreeNode | undefined,
+  options: { title: string; activeFileOnly?: boolean }
+): Promise<LocalBlockTarget | undefined> {
+  if (node?.kind === "block" && node.block) {
+    return { repoPath: node.repoPath, block: node.block };
+  }
+
+  const items = await listLocalBlockQuickPickItems(options.activeFileOnly === true);
+  if (items.length === 0) {
+    const suffix = options.activeFileOnly ? " in the active file" : "";
+    vscode.window.showWarningMessage(`No local blocks found${suffix}.`);
+    return undefined;
+  }
+
+  if (items.length === 1 && options.activeFileOnly === true) {
+    return items[0].target;
+  }
+
+  const selected = await vscode.window.showQuickPick(items, {
+    title: options.title,
+    ignoreFocusOut: true
+  });
+
+  return selected?.target;
+}
+
+async function listLocalBlockQuickPickItems(activeFileOnly: boolean): Promise<LocalBlockQuickPickItem[]> {
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  const activeFile = vscode.window.activeTextEditor?.document.uri.fsPath;
+  const items: LocalBlockQuickPickItem[] = [];
+
+  for (const folder of folders) {
+    const repoPath = folder.uri.fsPath;
+    const state = await tryReadLocalBlockState(repoPath);
+    if (!state) {
+      continue;
+    }
+
+    let activeRelativeFile: string | undefined;
+    if (activeFile && isPathInside(activeFile, repoPath)) {
+      activeRelativeFile = toPosixPath(path.relative(repoPath, activeFile));
+    }
+
+    for (const block of state.blocks) {
+      if (activeFileOnly && block.file !== activeRelativeFile) {
+        continue;
+      }
+
+      const status = await getLocalBlockStatus(repoPath, block);
+      items.push({
+        label: block.id,
+        description: block.file,
+        detail: `${path.basename(repoPath)} - ${getLocalBlockStatusLabel(status)}`,
+        target: { repoPath, block }
+      });
+    }
+  }
+
+  return items.sort((left, right) => {
+    const fileCompare = (left.description ?? "").localeCompare(right.description ?? "");
+    return fileCompare === 0 ? left.label.localeCompare(right.label) : fileCompare;
+  });
+}
+
+function refreshLocalBlocksView(): void {
+  localBlocksProvider?.refresh();
 }
 
 function replaceAt(text: string, index: number, currentText: string, nextText: string): string {
