@@ -257,6 +257,12 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("personalGitProcess.showPublicBlock", (node?: LocalBlockTreeNode) =>
       runCommand("Show Public Block", () => showSinglePublicBlockCommand(node))
     ),
+    vscode.commands.registerCommand("personalGitProcess.applyLocalBlockFromEditor", () =>
+      runCommand("Apply Current File Local Block", () => applySingleLocalBlockCommand(undefined, true))
+    ),
+    vscode.commands.registerCommand("personalGitProcess.showPublicBlockFromEditor", () =>
+      runCommand("Show Current File Public Block", () => showSinglePublicBlockCommand(undefined, true))
+    ),
     vscode.commands.registerCommand("personalGitProcess.updateLocalBlockFromSelection", (node?: LocalBlockTreeNode) =>
       runCommand("Update Local Block From Selection", () => updateLocalBlockFromSelectionCommand(node))
     ),
@@ -418,8 +424,12 @@ async function revealLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void>
   editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 }
 
-async function applySingleLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void> {
-  const target = await resolveLocalBlockTarget(node, { title: "Choose a local block to apply" });
+async function applySingleLocalBlockCommand(node?: LocalBlockTreeNode, activeFileOnly = false): Promise<void> {
+  const target = await resolveLocalBlockTarget(node, {
+    title: activeFileOnly ? "Choose a local block in the current file to apply" : "Choose a local block to apply",
+    activeFileOnly,
+    preferActiveSelection: activeFileOnly
+  });
   if (!target) {
     return;
   }
@@ -441,8 +451,14 @@ async function applySingleLocalBlockCommand(node?: LocalBlockTreeNode): Promise<
   );
 }
 
-async function showSinglePublicBlockCommand(node?: LocalBlockTreeNode): Promise<void> {
-  const target = await resolveLocalBlockTarget(node, { title: "Choose a local block to show as public" });
+async function showSinglePublicBlockCommand(node?: LocalBlockTreeNode, activeFileOnly = false): Promise<void> {
+  const target = await resolveLocalBlockTarget(node, {
+    title: activeFileOnly
+      ? "Choose a local block in the current file to show as public"
+      : "Choose a local block to show as public",
+    activeFileOnly,
+    preferActiveSelection: activeFileOnly
+  });
   if (!target) {
     return;
   }
@@ -478,7 +494,8 @@ async function updateLocalBlockFromSelectionCommand(node?: LocalBlockTreeNode): 
 
   const target = await resolveLocalBlockTarget(node, {
     title: "Choose a local block to update",
-    activeFileOnly: true
+    activeFileOnly: true,
+    preferActiveSelection: true
   });
   if (!target) {
     return;
@@ -1658,7 +1675,7 @@ function getLocalBlockStatusIcon(status: LocalBlockTreeStatus | undefined): vsco
 
 async function resolveLocalBlockTarget(
   node: LocalBlockTreeNode | undefined,
-  options: { title: string; activeFileOnly?: boolean }
+  options: { title: string; activeFileOnly?: boolean; preferActiveSelection?: boolean }
 ): Promise<LocalBlockTarget | undefined> {
   if (node?.kind === "block" && node.block) {
     return { repoPath: node.repoPath, block: node.block };
@@ -1671,6 +1688,11 @@ async function resolveLocalBlockTarget(
     return undefined;
   }
 
+  const selectionTarget = options.preferActiveSelection ? getTargetMatchingActiveSelection(items) : undefined;
+  if (selectionTarget) {
+    return selectionTarget;
+  }
+
   if (items.length === 1 && options.activeFileOnly === true) {
     return items[0].target;
   }
@@ -1681,6 +1703,20 @@ async function resolveLocalBlockTarget(
   });
 
   return selected?.target;
+}
+
+function getTargetMatchingActiveSelection(items: LocalBlockQuickPickItem[]): LocalBlockTarget | undefined {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.selection.isEmpty) {
+    return undefined;
+  }
+
+  const selectedText = editor.document.getText(editor.selection);
+  const matches = items.filter(
+    (item) => item.target.block.localText === selectedText || item.target.block.baseText === selectedText
+  );
+
+  return matches.length === 1 ? matches[0].target : undefined;
 }
 
 async function listLocalBlockQuickPickItems(activeFileOnly: boolean): Promise<LocalBlockQuickPickItem[]> {

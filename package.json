@@ -2,7 +2,7 @@
     "name": "personal-git-process",
     "displayName": "Personal Git Process",
     "description": "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
-    "version": "0.0.6",
+    "version": "0.0.8",
     "publisher": "jdx-plugin-01",
     "license": "MIT",
     "icon": "imgs/git.png",
@@ -29,6 +29,8 @@
         "onCommand:personalGitProcess.revealLocalBlock",
         "onCommand:personalGitProcess.applyLocalBlock",
         "onCommand:personalGitProcess.showPublicBlock",
+        "onCommand:personalGitProcess.applyLocalBlockFromEditor",
+        "onCommand:personalGitProcess.showPublicBlockFromEditor",
         "onCommand:personalGitProcess.updateLocalBlockFromSelection",
         "onCommand:personalGitProcess.deleteLocalBlock",
         "onView:personalGitProcess.localBlocks",
@@ -64,7 +66,8 @@
             },
             {
                 "command": "personalGitProcess.protectSelection",
-                "title": "Personal Git Process: Protect Selection as Local Block"
+                "title": "Personal Git Process: Protect Selection as Local Block",
+                "icon": "$(shield)"
             },
             {
                 "command": "personalGitProcess.applyLocalBlocks",
@@ -107,6 +110,16 @@
                 "icon": "$(globe)"
             },
             {
+                "command": "personalGitProcess.applyLocalBlockFromEditor",
+                "title": "Apply Local Version for Current File Block",
+                "icon": "$(home)"
+            },
+            {
+                "command": "personalGitProcess.showPublicBlockFromEditor",
+                "title": "Show Public Version for Current File Block",
+                "icon": "$(globe)"
+            },
+            {
                 "command": "personalGitProcess.updateLocalBlockFromSelection",
                 "title": "Personal Git Process: Update Local Block From Selection",
                 "icon": "$(edit)"
@@ -122,6 +135,13 @@
             }
         ],
         "menus": {
+            "editor/context": [
+                {
+                    "submenu": "personalGitProcess.editorMenu",
+                    "when": "resourceScheme == file",
+                    "group": "1_modification@50"
+                }
+            ],
             "view/title": [
                 {
                     "command": "personalGitProcess.refreshLocalBlocks",
@@ -155,8 +175,56 @@
                     "when": "view == personalGitProcess.localBlocks && viewItem == localBlock",
                     "group": "9_delete"
                 }
+            ],
+            "personalGitProcess.editorMenu": [
+                {
+                    "command": "personalGitProcess.protectSelection",
+                    "when": "editorHasSelection && resourceScheme == file",
+                    "group": "1_localBlocks@10"
+                },
+                {
+                    "command": "personalGitProcess.updateLocalBlockFromSelection",
+                    "when": "editorHasSelection && resourceScheme == file",
+                    "group": "1_localBlocks@20"
+                },
+                {
+                    "command": "personalGitProcess.applyLocalBlockFromEditor",
+                    "when": "resourceScheme == file",
+                    "group": "2_switch@10"
+                },
+                {
+                    "command": "personalGitProcess.showPublicBlockFromEditor",
+                    "when": "resourceScheme == file",
+                    "group": "2_switch@20"
+                },
+                {
+                    "command": "personalGitProcess.applyLocalBlocks",
+                    "when": "resourceScheme == file",
+                    "group": "3_allBlocks@10"
+                },
+                {
+                    "command": "personalGitProcess.showPublicVersion",
+                    "when": "resourceScheme == file",
+                    "group": "3_allBlocks@20"
+                },
+                {
+                    "command": "personalGitProcess.safeSyncLocalBlocks",
+                    "when": "resourceScheme == file",
+                    "group": "4_git@10"
+                },
+                {
+                    "command": "personalGitProcess.safePush",
+                    "when": "resourceScheme == file",
+                    "group": "4_git@20"
+                }
             ]
-        }
+        },
+        "submenus": [
+            {
+                "id": "personalGitProcess.editorMenu",
+                "label": "Personal Git Process"
+            }
+        ]
     },
     "scripts": {
         "compile": "tsc -p ./",
