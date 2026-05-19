@@ -1,8 +1,8 @@
 {
     "name": "personal-git-process",
-    "displayName": "Personal Git Process",
-    "description": "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
-    "version": "0.0.8",
+    "displayName": "%extension.displayName%",
+    "description": "%extension.description%",
+    "version": "0.0.9",
     "publisher": "jdx-plugin-01",
     "license": "MIT",
     "icon": "imgs/git.png",
@@ -42,7 +42,7 @@
             "activitybar": [
                 {
                     "id": "personalGitProcess",
-                    "title": "Personal Git",
+                    "title": "%viewContainer.personalGitProcess.title%",
                     "icon": "imgs/personal-git.svg"
                 }
             ]
@@ -51,87 +51,104 @@
             "personalGitProcess": [
                 {
                     "id": "personalGitProcess.localBlocks",
-                    "name": "Local Blocks"
+                    "name": "%view.localBlocks.name%"
                 }
             ]
         },
         "commands": [
             {
                 "command": "personalGitProcess.syncWorkspace",
-                "title": "Personal Git Process: Sync Workspace"
+                "title": "%command.syncWorkspace.title%",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.safePush",
-                "title": "Personal Git Process: Safe Push"
+                "title": "%command.safePush.title%",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.protectSelection",
-                "title": "Personal Git Process: Protect Selection as Local Block",
-                "icon": "$(shield)"
+                "title": "%command.protectSelection.title%",
+                "icon": "$(shield)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.applyLocalBlocks",
-                "title": "Personal Git Process: Apply Local Blocks"
+                "title": "%command.applyLocalBlocks.title%",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.showPublicVersion",
-                "title": "Personal Git Process: Show Public Version"
+                "title": "%command.showPublicVersion.title%",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.safeSyncLocalBlocks",
-                "title": "Personal Git Process: Safe Sync With Local Blocks"
+                "title": "%command.safeSyncLocalBlocks.title%",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.installLocalBlockFilter",
-                "title": "Personal Git Process: Install Local Block Git Filter"
+                "title": "%command.installLocalBlockFilter.title%",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.installPreCommitGuard",
-                "title": "Personal Git Process: Install Local Block Pre-Commit Guard"
+                "title": "%command.installPreCommitGuard.title%",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.refreshLocalBlocks",
-                "title": "Personal Git Process: Refresh Local Blocks",
-                "icon": "$(refresh)"
+                "title": "%command.refreshLocalBlocks.title%",
+                "icon": "$(refresh)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.revealLocalBlock",
-                "title": "Personal Git Process: Reveal Local Block",
-                "icon": "$(go-to-file)"
+                "title": "%command.revealLocalBlock.title%",
+                "icon": "$(go-to-file)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.applyLocalBlock",
-                "title": "Personal Git Process: Apply This Local Block",
-                "icon": "$(home)"
+                "title": "%command.applyLocalBlock.title%",
+                "icon": "$(home)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.showPublicBlock",
-                "title": "Personal Git Process: Show Public Version for This Block",
-                "icon": "$(globe)"
+                "title": "%command.showPublicBlock.title%",
+                "icon": "$(globe)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.applyLocalBlockFromEditor",
-                "title": "Apply Local Version for Current File Block",
-                "icon": "$(home)"
+                "title": "%command.applyLocalBlockFromEditor.title%",
+                "icon": "$(home)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.showPublicBlockFromEditor",
-                "title": "Show Public Version for Current File Block",
-                "icon": "$(globe)"
+                "title": "%command.showPublicBlockFromEditor.title%",
+                "icon": "$(globe)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.updateLocalBlockFromSelection",
-                "title": "Personal Git Process: Update Local Block From Selection",
-                "icon": "$(edit)"
+                "title": "%command.updateLocalBlockFromSelection.title%",
+                "icon": "$(edit)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.deleteLocalBlock",
-                "title": "Personal Git Process: Delete Local Block",
-                "icon": "$(trash)"
+                "title": "%command.deleteLocalBlock.title%",
+                "icon": "$(trash)",
+                "category": "%command.category%"
             },
             {
                 "command": "personalGitProcess.openOutput",
-                "title": "Personal Git Process: Open Output"
+                "title": "%command.openOutput.title%",
+                "category": "%command.category%"
             }
         ],
         "menus": {
@@ -222,7 +239,7 @@
         "submenus": [
             {
                 "id": "personalGitProcess.editorMenu",
-                "label": "Personal Git Process"
+                "label": "%submenu.editorMenu.label%"
             }
         ]
     },

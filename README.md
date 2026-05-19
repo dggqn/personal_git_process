@@ -152,6 +152,7 @@ git push origin v0.0.x
 - 如果相同文本在同一文件中出现多次，可能匹配到第一个。
 - 如果远端也修改了同一段公共代码，插件会标记冲突，需要手动处理。
 - 如果你保护后又改了本机块内容，需要重新保护或更新本机块记录。
+- 菜单、命令和主要弹窗支持中英文；VS Code 语言为 `zh-cn` 时显示中文，其余语言显示英文。
 
 ### 开发
 
@@ -321,6 +322,7 @@ Pushing the tag triggers GitHub Actions to publish the extension to the VS Code 
 - If the same text appears multiple times in a file, the first match may be used.
 - If the remote changes the same public block, the extension marks a conflict and asks for manual handling.
 - If you edit local block text after protecting it, protect it again or update the saved block.
+- Menus, commands, and primary prompts support English and Simplified Chinese. VS Code `zh-cn` uses Chinese; all other locales use English.
 
 ### Development
 

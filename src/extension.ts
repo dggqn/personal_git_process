@@ -86,6 +86,235 @@ const ATTRIBUTES_MARKER_END = "# personal-git-process local-blocks end";
 
 const output = vscode.window.createOutputChannel("Personal Git Process");
 let localBlocksProvider: LocalBlocksTreeDataProvider | undefined;
+const isChineseLocale = vscode.env.language.toLowerCase().startsWith("zh-cn");
+
+function localizeText(english: string, chinese: string): string {
+  return isChineseLocale ? chinese : english;
+}
+
+function t(template: string, values: Record<string, string | number> = {}): string {
+  const englishMessages = {
+    statusBarTooltip: "Run Personal Git Process sync",
+    revealLocalBlock: "Reveal Local Block",
+    commandSyncWorkspace: "Sync Workspace",
+    commandSafePush: "Safe Push",
+    commandProtectSelection: "Protect Selection as Local Block",
+    commandApplyLocalBlocks: "Apply Local Blocks",
+    commandShowPublicVersion: "Show Public Version",
+    commandSafeSyncLocalBlocks: "Safe Sync With Local Blocks",
+    commandInstallLocalBlockFilter: "Install Local Block Git Filter",
+    commandInstallPreCommitGuard: "Install Local Block Pre-Commit Guard",
+    commandRevealLocalBlock: "Reveal Local Block",
+    commandApplyLocalBlock: "Apply Local Block",
+    commandShowPublicBlock: "Show Public Block",
+    commandApplyCurrentFileLocalBlock: "Apply Current File Local Block",
+    commandShowCurrentFilePublicBlock: "Show Current File Public Block",
+    commandUpdateLocalBlockFromSelection: "Update Local Block From Selection",
+    commandDeleteLocalBlock: "Delete Local Block",
+    openFileSelectCode: "Open a file and select code before creating a local block.",
+    selectLocalBlockCode: "Select the code that should become a local block first.",
+    selectedFileOutsideRepo: "The selected file is not inside the selected repository.",
+    localBlockIdTitle: "Local block id",
+    localBlockIdPrompt: "Name this local-only code block.",
+    localBlockExists: "Local block {file}#{id} already exists.",
+    localBlockSaved: "Local block saved: {file}#{id}",
+    appliedWithConflicts:
+      "Applied {applied} local block(s), {conflicts} need manual handling. See output for details.",
+    appliedCount: "Applied {count} local block(s).",
+    restoredWithConflicts:
+      "Restored {restored} local block(s), {conflicts} need manual handling. See output for details.",
+    restoredCount: "Restored public version for {count} local block(s).",
+    chooseBlockReveal: "Choose a local block to reveal",
+    blockNotFoundInFile: "Could not find {file}#{id} in the current file content.",
+    chooseBlockApplyCurrentFile: "Choose a local block in the current file to apply",
+    chooseBlockApply: "Choose a local block to apply",
+    chooseBlockShowPublicCurrentFile: "Choose a local block in the current file to show as public",
+    chooseBlockShowPublic: "Choose a local block to show as public",
+    blockNeedsManualHandling: "{file}#{id} needs manual handling.",
+    appliedBlock: "Applied local block: {file}#{id}",
+    blockAlreadyApplied: "Local block already applied: {file}#{id}",
+    restoredBlock: "Restored public version: {file}#{id}",
+    blockAlreadyPublic: "Local block already public: {file}#{id}",
+    openFileSelectNewContent: "Open a file and select the new local block content first.",
+    selectNewContent: "Select the new local-only code before updating a local block.",
+    chooseBlockUpdate: "Choose a local block to update",
+    selectionMustBeInside: "Selection must be inside {file} before updating {id}.",
+    blockNoLongerExists: "Local block no longer exists: {file}#{id}",
+    updatedBlockFromSelection: "Updated local block from selection: {file}#{id}",
+    chooseBlockDelete: "Choose a local block to delete",
+    deleteBlockQuestion: "Delete local block {file}#{id}?",
+    actionRestorePublicAndDelete: "Restore Public and Delete",
+    actionKeepFileContentAndDelete: "Keep File Content and Delete",
+    deleteStopped:
+      "Delete stopped: {file}#{id} could not be restored automatically.",
+    deletedBlock: "Deleted local block: {file}#{id}",
+    preCommitGuardInstalled: "Local block pre-commit guard installed.",
+    filterInstalled: "Local block Git filter installed.",
+    progressSafeSync: "Personal Git Process: Safe Sync With Local Blocks",
+    progressSync: "Personal Git Process: Sync Workspace",
+    progressSafePush: "Personal Git Process: Safe Push",
+    progressCheckingRepo: "Checking repository state",
+    progressRestoringPublic: "Restoring public versions for local blocks",
+    safeSyncRestoreStopped:
+      "Safe sync stopped: some local blocks could not be restored to public versions. See output for details.",
+    localChangesAfterPublic:
+      "Detected local changes after local blocks were restored to public versions. Create a stash before syncing?",
+    localChangesStashQuestion: "Detected local changes. Create a stash before syncing?",
+    actionStashAndContinue: "Stash and Continue",
+    actionCancel: "Cancel",
+    progressFetching: "Fetching remote updates",
+    progressRunningStrategy: "Running {strategy} against {upstream}",
+    progressReapplyingStash: "Re-applying stash",
+    progressApplyingBlocks: "Applying local blocks",
+    syncCompletedWithConflicts:
+      "Sync completed, but {conflicts} local block(s) need manual handling. See output for details.",
+    safeSyncCompleted: "Safe sync with local blocks completed on branch {branch}.",
+    syncCompleted: "Sync completed on branch {branch}.",
+    pushBlockedDirty: "Push blocked: working tree has uncommitted changes.",
+    pushBlockedBehind: "Push blocked: branch is behind {upstream} by {behind} commit(s). Sync first.",
+    pushAheadQuestion: "Push {ahead} local commit(s) from {branch} to {upstream}?",
+    pushNoAheadQuestion: "No local commits are ahead of {upstream}. Push anyway?",
+    actionPush: "Push",
+    pushCompleted: "Push completed for {branch}.",
+    setUpstreamRemoteTitle: "Set upstream remote",
+    setUpstreamRemotePrompt: "Remote name for first push",
+    remoteRequired: "Remote is required",
+    pushSetUpstreamQuestion: "Push {branch} and set upstream to {remote}/{branch}?",
+    pushUpstreamCompleted: "Push completed and upstream set to {remote}/{branch}.",
+    openFolderFirst: "Open a folder or workspace before running Personal Git Process.",
+    chooseRepositoryFolder: "Choose repository folder",
+    upstreamBranchTitle: "Upstream branch",
+    upstreamBranchPrompt: "No upstream detected. Enter a branch reference to sync against.",
+    upstreamRequired: "Upstream branch is required",
+    chooseSyncStrategy: "Choose sync strategy",
+    strategyRebase: "Rebase",
+    strategyRebaseDescription: "Keep history linear by rebasing onto upstream",
+    strategyMerge: "Merge",
+    strategyMergeDescription: "Create a merge commit when needed",
+    publicVersionTitle: "Public version for local block",
+    publicVersionMissingPrompt:
+      "This file is not available in HEAD. Enter the public version that should be committed.",
+    publicVersionInferPrompt:
+      "Could not infer the public version from HEAD. Edit the text that should be committed instead.",
+    noLocalBlocksFound: "No local blocks found{suffix}.",
+    activeFileSuffix: " in the active file",
+    validateBlockIdRequired: "Block id is required",
+    validateBlockIdChars: "Use only letters, numbers, dot, underscore, or dash",
+    gitCommandFailed: "Git command failed: {message}",
+    commandFailed: "{name} failed: {message}"
+  };
+
+  const chineseMessages: typeof englishMessages = {
+    statusBarTooltip: "运行个人 Git 流程同步",
+    revealLocalBlock: "定位本机块",
+    commandSyncWorkspace: "同步工作区",
+    commandSafePush: "安全推送",
+    commandProtectSelection: "保护选区为本机块",
+    commandApplyLocalBlocks: "应用所有本机块",
+    commandShowPublicVersion: "显示公共版本",
+    commandSafeSyncLocalBlocks: "带本机块安全同步",
+    commandInstallLocalBlockFilter: "安装本机块 Git 过滤器",
+    commandInstallPreCommitGuard: "安装本机块提交前检查",
+    commandRevealLocalBlock: "定位本机块",
+    commandApplyLocalBlock: "应用本机块",
+    commandShowPublicBlock: "显示本机块公共版本",
+    commandApplyCurrentFileLocalBlock: "应用当前文件本机块",
+    commandShowCurrentFilePublicBlock: "显示当前文件公共版本",
+    commandUpdateLocalBlockFromSelection: "用选区更新本机块",
+    commandDeleteLocalBlock: "删除本机块",
+    openFileSelectCode: "请先打开文件并选中要保护的代码。",
+    selectLocalBlockCode: "请先选中要变成本机块的代码。",
+    selectedFileOutsideRepo: "选中的文件不在所选仓库内。",
+    localBlockIdTitle: "本机块 ID",
+    localBlockIdPrompt: "给这段只保留在本机的代码起个名字。",
+    localBlockExists: "本机块 {file}#{id} 已存在。",
+    localBlockSaved: "已保存本机块：{file}#{id}",
+    appliedWithConflicts: "已应用 {applied} 个本机块，{conflicts} 个需要手动处理。详情见输出日志。",
+    appliedCount: "已应用 {count} 个本机块。",
+    restoredWithConflicts: "已恢复 {restored} 个本机块为公共版本，{conflicts} 个需要手动处理。详情见输出日志。",
+    restoredCount: "已将 {count} 个本机块恢复为公共版本。",
+    chooseBlockReveal: "选择要定位的本机块",
+    blockNotFoundInFile: "无法在当前文件内容中找到 {file}#{id}。",
+    chooseBlockApplyCurrentFile: "选择当前文件中要应用的本机块",
+    chooseBlockApply: "选择要应用的本机块",
+    chooseBlockShowPublicCurrentFile: "选择当前文件中要显示公共版本的本机块",
+    chooseBlockShowPublic: "选择要显示公共版本的本机块",
+    blockNeedsManualHandling: "{file}#{id} 需要手动处理。",
+    appliedBlock: "已应用本机块：{file}#{id}",
+    blockAlreadyApplied: "本机块已经是本机版本：{file}#{id}",
+    restoredBlock: "已恢复公共版本：{file}#{id}",
+    blockAlreadyPublic: "本机块已经是公共版本：{file}#{id}",
+    openFileSelectNewContent: "请先打开文件并选中新本机块内容。",
+    selectNewContent: "请先选中新的本机专用代码。",
+    chooseBlockUpdate: "选择要更新的本机块",
+    selectionMustBeInside: "选区必须在 {file} 中，才能更新 {id}。",
+    blockNoLongerExists: "本机块已不存在：{file}#{id}",
+    updatedBlockFromSelection: "已用选区更新本机块：{file}#{id}",
+    chooseBlockDelete: "选择要删除的本机块",
+    deleteBlockQuestion: "确定删除本机块 {file}#{id} 吗？",
+    actionRestorePublicAndDelete: "恢复公共版本并删除",
+    actionKeepFileContentAndDelete: "保留文件内容并删除记录",
+    deleteStopped: "删除已停止：{file}#{id} 无法自动恢复为公共版本。",
+    deletedBlock: "已删除本机块：{file}#{id}",
+    preCommitGuardInstalled: "已安装本机块提交前检查。",
+    filterInstalled: "已安装本机块 Git 过滤器。",
+    progressSafeSync: "个人 Git 流程：带本机块安全同步",
+    progressSync: "个人 Git 流程：同步工作区",
+    progressSafePush: "个人 Git 流程：安全推送",
+    progressCheckingRepo: "正在检查仓库状态",
+    progressRestoringPublic: "正在将本机块恢复为公共版本",
+    safeSyncRestoreStopped: "安全同步已停止：部分本机块无法恢复为公共版本。详情见输出日志。",
+    localChangesAfterPublic: "恢复公共版本后检测到本地改动。同步前是否先创建 stash？",
+    localChangesStashQuestion: "检测到本地改动。同步前是否先创建 stash？",
+    actionStashAndContinue: "Stash 并继续",
+    actionCancel: "取消",
+    progressFetching: "正在拉取远端更新",
+    progressRunningStrategy: "正在对 {upstream} 执行 {strategy}",
+    progressReapplyingStash: "正在重新应用 stash",
+    progressApplyingBlocks: "正在应用本机块",
+    syncCompletedWithConflicts: "同步已完成，但 {conflicts} 个本机块需要手动处理。详情见输出日志。",
+    safeSyncCompleted: "带本机块安全同步完成，当前分支：{branch}。",
+    syncCompleted: "同步完成，当前分支：{branch}。",
+    pushBlockedDirty: "已阻止推送：工作区还有未提交改动。",
+    pushBlockedBehind: "已阻止推送：当前分支落后 {upstream} {behind} 个提交。请先同步。",
+    pushAheadQuestion: "是否将 {branch} 上的 {ahead} 个本地提交推送到 {upstream}？",
+    pushNoAheadQuestion: "当前没有领先 {upstream} 的本地提交。仍然推送吗？",
+    actionPush: "推送",
+    pushCompleted: "{branch} 推送完成。",
+    setUpstreamRemoteTitle: "设置 upstream 远端",
+    setUpstreamRemotePrompt: "首次推送使用的远端名称",
+    remoteRequired: "远端名称必填",
+    pushSetUpstreamQuestion: "是否推送 {branch} 并将 upstream 设置为 {remote}/{branch}？",
+    pushUpstreamCompleted: "推送完成，并已将 upstream 设置为 {remote}/{branch}。",
+    openFolderFirst: "运行个人 Git 流程前，请先打开文件夹或工作区。",
+    chooseRepositoryFolder: "选择仓库文件夹",
+    upstreamBranchTitle: "Upstream 分支",
+    upstreamBranchPrompt: "未检测到 upstream。请输入要同步的分支引用。",
+    upstreamRequired: "Upstream 分支必填",
+    chooseSyncStrategy: "选择同步策略",
+    strategyRebase: "Rebase",
+    strategyRebaseDescription: "通过 rebase 保持提交历史线性",
+    strategyMerge: "Merge",
+    strategyMergeDescription: "需要时创建 merge commit",
+    publicVersionTitle: "本机块公共版本",
+    publicVersionMissingPrompt: "HEAD 中没有这个文件。请输入 Git 应该提交的公共版本。",
+    publicVersionInferPrompt: "无法从 HEAD 推断公共版本。请编辑 Git 应该提交的文本。",
+    noLocalBlocksFound: "没有找到本机块{suffix}。",
+    activeFileSuffix: "（当前文件）",
+    validateBlockIdRequired: "本机块 ID 必填",
+    validateBlockIdChars: "只能使用字母、数字、点、下划线或短横线",
+    gitCommandFailed: "Git 命令失败：{message}",
+    commandFailed: "{name} 失败：{message}"
+  };
+
+  type MessageKey = keyof typeof englishMessages;
+  const key = template as MessageKey;
+  const messages = isChineseLocale ? chineseMessages : englishMessages;
+  const message = messages[key] ?? englishMessages[key] ?? template;
+  return message.replace(/\{(\w+)\}/g, (match: string, key: string) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match
+  );
+}
 
 class LocalBlocksTreeDataProvider implements vscode.TreeDataProvider<LocalBlockTreeNode> {
   private readonly changeEmitter = new vscode.EventEmitter<LocalBlockTreeNode | undefined | null | void>();
@@ -165,13 +394,13 @@ class LocalBlocksTreeDataProvider implements vscode.TreeDataProvider<LocalBlockT
     const item = new vscode.TreeItem(block?.id ?? "local block", vscode.TreeItemCollapsibleState.None);
     item.description = getLocalBlockStatusLabel(element.status);
     item.tooltip = block
-      ? `${block.file}#${block.id}\nStatus: ${getLocalBlockStatusLabel(element.status)}\nUpdated: ${block.updatedAt}`
+      ? `${block.file}#${block.id}\n${localizeText("Status", "状态")}: ${getLocalBlockStatusLabel(element.status)}\n${localizeText("Updated", "更新时间")}: ${block.updatedAt}`
       : undefined;
     item.iconPath = getLocalBlockStatusIcon(element.status);
     item.contextValue = "localBlock";
     item.command = {
       command: "personalGitProcess.revealLocalBlock",
-      title: "Reveal Local Block",
+      title: t("revealLocalBlock"),
       arguments: [element]
     };
     return item;
@@ -211,7 +440,7 @@ class LocalBlocksTreeDataProvider implements vscode.TreeDataProvider<LocalBlockT
 export function activate(context: vscode.ExtensionContext): void {
   const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBar.text = "$(git-branch) Personal Git";
-  statusBar.tooltip = "Run Personal Git Process sync";
+  statusBar.tooltip = t("statusBarTooltip");
   statusBar.command = "personalGitProcess.syncWorkspace";
   statusBar.show();
 
@@ -226,48 +455,48 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBar,
     localBlocksTree,
     vscode.commands.registerCommand("personalGitProcess.syncWorkspace", () =>
-      runCommand("Sync Workspace", syncWorkspace)
+      runCommand(t("commandSyncWorkspace"), syncWorkspace)
     ),
-    vscode.commands.registerCommand("personalGitProcess.safePush", () => runCommand("Safe Push", safePush)),
+    vscode.commands.registerCommand("personalGitProcess.safePush", () => runCommand(t("commandSafePush"), safePush)),
     vscode.commands.registerCommand("personalGitProcess.protectSelection", () =>
-      runCommand("Protect Selection as Local Block", protectSelectionAsLocalBlock)
+      runCommand(t("commandProtectSelection"), protectSelectionAsLocalBlock)
     ),
     vscode.commands.registerCommand("personalGitProcess.applyLocalBlocks", () =>
-      runCommand("Apply Local Blocks", applyLocalBlocksCommand)
+      runCommand(t("commandApplyLocalBlocks"), applyLocalBlocksCommand)
     ),
     vscode.commands.registerCommand("personalGitProcess.showPublicVersion", () =>
-      runCommand("Show Public Version", showPublicVersionCommand)
+      runCommand(t("commandShowPublicVersion"), showPublicVersionCommand)
     ),
     vscode.commands.registerCommand("personalGitProcess.safeSyncLocalBlocks", () =>
-      runCommand("Safe Sync With Local Blocks", safeSyncWithLocalBlocks)
+      runCommand(t("commandSafeSyncLocalBlocks"), safeSyncWithLocalBlocks)
     ),
     vscode.commands.registerCommand("personalGitProcess.installLocalBlockFilter", () =>
-      runCommand("Install Local Block Git Filter", installLocalBlockFilterCommand)
+      runCommand(t("commandInstallLocalBlockFilter"), installLocalBlockFilterCommand)
     ),
     vscode.commands.registerCommand("personalGitProcess.installPreCommitGuard", () =>
-      runCommand("Install Local Block Pre-Commit Guard", installPreCommitGuardCommand)
+      runCommand(t("commandInstallPreCommitGuard"), installPreCommitGuardCommand)
     ),
     vscode.commands.registerCommand("personalGitProcess.refreshLocalBlocks", () => localBlocksProvider?.refresh()),
     vscode.commands.registerCommand("personalGitProcess.revealLocalBlock", (node?: LocalBlockTreeNode) =>
-      runCommand("Reveal Local Block", () => revealLocalBlockCommand(node))
+      runCommand(t("commandRevealLocalBlock"), () => revealLocalBlockCommand(node))
     ),
     vscode.commands.registerCommand("personalGitProcess.applyLocalBlock", (node?: LocalBlockTreeNode) =>
-      runCommand("Apply Local Block", () => applySingleLocalBlockCommand(node))
+      runCommand(t("commandApplyLocalBlock"), () => applySingleLocalBlockCommand(node))
     ),
     vscode.commands.registerCommand("personalGitProcess.showPublicBlock", (node?: LocalBlockTreeNode) =>
-      runCommand("Show Public Block", () => showSinglePublicBlockCommand(node))
+      runCommand(t("commandShowPublicBlock"), () => showSinglePublicBlockCommand(node))
     ),
     vscode.commands.registerCommand("personalGitProcess.applyLocalBlockFromEditor", () =>
-      runCommand("Apply Current File Local Block", () => applySingleLocalBlockCommand(undefined, true))
+      runCommand(t("commandApplyCurrentFileLocalBlock"), () => applySingleLocalBlockCommand(undefined, true))
     ),
     vscode.commands.registerCommand("personalGitProcess.showPublicBlockFromEditor", () =>
-      runCommand("Show Current File Public Block", () => showSinglePublicBlockCommand(undefined, true))
+      runCommand(t("commandShowCurrentFilePublicBlock"), () => showSinglePublicBlockCommand(undefined, true))
     ),
     vscode.commands.registerCommand("personalGitProcess.updateLocalBlockFromSelection", (node?: LocalBlockTreeNode) =>
-      runCommand("Update Local Block From Selection", () => updateLocalBlockFromSelectionCommand(node))
+      runCommand(t("commandUpdateLocalBlockFromSelection"), () => updateLocalBlockFromSelectionCommand(node))
     ),
     vscode.commands.registerCommand("personalGitProcess.deleteLocalBlock", (node?: LocalBlockTreeNode) =>
-      runCommand("Delete Local Block", () => deleteLocalBlockCommand(node))
+      runCommand(t("commandDeleteLocalBlock"), () => deleteLocalBlockCommand(node))
     ),
     vscode.commands.registerCommand("personalGitProcess.openOutput", () => output.show(true))
   );
@@ -280,13 +509,13 @@ export function deactivate(): void {
 async function protectSelectionAsLocalBlock(): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    vscode.window.showWarningMessage("Open a file and select code before creating a local block.");
+    vscode.window.showWarningMessage(t("openFileSelectCode"));
     return;
   }
 
   const selection = editor.selection;
   if (selection.isEmpty) {
-    vscode.window.showWarningMessage("Select the code that should become a local block first.");
+    vscode.window.showWarningMessage(t("selectLocalBlockCode"));
     return;
   }
 
@@ -301,14 +530,14 @@ async function protectSelectionAsLocalBlock(): Promise<void> {
   const absoluteFile = editor.document.uri.fsPath;
   const relativeFile = toPosixPath(path.relative(repoPath, absoluteFile));
   if (relativeFile.startsWith("..") || path.isAbsolute(relativeFile)) {
-    vscode.window.showWarningMessage("The selected file is not inside the selected repository.");
+    vscode.window.showWarningMessage(t("selectedFileOutsideRepo"));
     return;
   }
 
   const localText = editor.document.getText(selection);
   const id = await vscode.window.showInputBox({
-    title: "Local block id",
-    prompt: "Name this local-only code block.",
+    title: t("localBlockIdTitle"),
+    prompt: t("localBlockIdPrompt"),
     value: suggestBlockId(relativeFile),
     ignoreFocusOut: true,
     validateInput: (value) => validateBlockId(value)
@@ -323,7 +552,7 @@ async function protectSelectionAsLocalBlock(): Promise<void> {
   const state = await readLocalBlockState(repoPath);
   const duplicate = state.blocks.find((block) => block.file === relativeFile && block.id === blockId);
   if (duplicate) {
-    vscode.window.showWarningMessage(`Local block ${relativeFile}#${blockId} already exists.`);
+    vscode.window.showWarningMessage(t("localBlockExists", { file: relativeFile, id: blockId }));
     return;
   }
 
@@ -352,7 +581,7 @@ async function protectSelectionAsLocalBlock(): Promise<void> {
   await installLocalBlockFilter(repoPath);
   refreshLocalBlocksView();
 
-  vscode.window.showInformationMessage(`Local block saved: ${relativeFile}#${block.id}`);
+  vscode.window.showInformationMessage(t("localBlockSaved", { file: relativeFile, id: block.id }));
   log(`Local block saved: ${relativeFile}#${block.id}`);
 }
 
@@ -369,12 +598,12 @@ async function applyLocalBlocksCommand(): Promise<void> {
 
   if (result.conflicts > 0) {
     vscode.window.showWarningMessage(
-      `Applied ${result.applied} local block(s), ${result.conflicts} need manual handling. See output for details.`
+      t("appliedWithConflicts", { applied: result.applied, conflicts: result.conflicts })
     );
     return;
   }
 
-  vscode.window.showInformationMessage(`Applied ${result.applied} local block(s).`);
+  vscode.window.showInformationMessage(t("appliedCount", { count: result.applied }));
 }
 
 async function showPublicVersionCommand(): Promise<void> {
@@ -390,16 +619,16 @@ async function showPublicVersionCommand(): Promise<void> {
 
   if (result.conflicts > 0) {
     vscode.window.showWarningMessage(
-      `Restored ${result.restored} local block(s), ${result.conflicts} need manual handling. See output for details.`
+      t("restoredWithConflicts", { restored: result.restored, conflicts: result.conflicts })
     );
     return;
   }
 
-  vscode.window.showInformationMessage(`Restored public version for ${result.restored} local block(s).`);
+  vscode.window.showInformationMessage(t("restoredCount", { count: result.restored }));
 }
 
 async function revealLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void> {
-  const target = await resolveLocalBlockTarget(node, { title: "Choose a local block to reveal" });
+  const target = await resolveLocalBlockTarget(node, { title: t("chooseBlockReveal") });
   if (!target) {
     return;
   }
@@ -411,7 +640,7 @@ async function revealLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void>
 
   if (!location) {
     vscode.window.showWarningMessage(
-      `Could not find ${target.block.file}#${target.block.id} in the current file content.`
+      t("blockNotFoundInFile", { file: target.block.file, id: target.block.id })
     );
     return;
   }
@@ -426,7 +655,7 @@ async function revealLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void>
 
 async function applySingleLocalBlockCommand(node?: LocalBlockTreeNode, activeFileOnly = false): Promise<void> {
   const target = await resolveLocalBlockTarget(node, {
-    title: activeFileOnly ? "Choose a local block in the current file to apply" : "Choose a local block to apply",
+    title: activeFileOnly ? t("chooseBlockApplyCurrentFile") : t("chooseBlockApply"),
     activeFileOnly,
     preferActiveSelection: activeFileOnly
   });
@@ -440,22 +669,20 @@ async function applySingleLocalBlockCommand(node?: LocalBlockTreeNode, activeFil
   refreshLocalBlocksView();
 
   if (result === "conflict") {
-    vscode.window.showWarningMessage(`${target.block.file}#${target.block.id} needs manual handling.`);
+    vscode.window.showWarningMessage(t("blockNeedsManualHandling", { file: target.block.file, id: target.block.id }));
     return;
   }
 
   vscode.window.showInformationMessage(
     result === "changed"
-      ? `Applied local block: ${target.block.file}#${target.block.id}`
-      : `Local block already applied: ${target.block.file}#${target.block.id}`
+      ? t("appliedBlock", { file: target.block.file, id: target.block.id })
+      : t("blockAlreadyApplied", { file: target.block.file, id: target.block.id })
   );
 }
 
 async function showSinglePublicBlockCommand(node?: LocalBlockTreeNode, activeFileOnly = false): Promise<void> {
   const target = await resolveLocalBlockTarget(node, {
-    title: activeFileOnly
-      ? "Choose a local block in the current file to show as public"
-      : "Choose a local block to show as public",
+    title: activeFileOnly ? t("chooseBlockShowPublicCurrentFile") : t("chooseBlockShowPublic"),
     activeFileOnly,
     preferActiveSelection: activeFileOnly
   });
@@ -469,31 +696,31 @@ async function showSinglePublicBlockCommand(node?: LocalBlockTreeNode, activeFil
   refreshLocalBlocksView();
 
   if (result === "conflict") {
-    vscode.window.showWarningMessage(`${target.block.file}#${target.block.id} needs manual handling.`);
+    vscode.window.showWarningMessage(t("blockNeedsManualHandling", { file: target.block.file, id: target.block.id }));
     return;
   }
 
   vscode.window.showInformationMessage(
     result === "changed"
-      ? `Restored public version: ${target.block.file}#${target.block.id}`
-      : `Local block already public: ${target.block.file}#${target.block.id}`
+      ? t("restoredBlock", { file: target.block.file, id: target.block.id })
+      : t("blockAlreadyPublic", { file: target.block.file, id: target.block.id })
   );
 }
 
 async function updateLocalBlockFromSelectionCommand(node?: LocalBlockTreeNode): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    vscode.window.showWarningMessage("Open a file and select the new local block content first.");
+    vscode.window.showWarningMessage(t("openFileSelectNewContent"));
     return;
   }
 
   if (editor.selection.isEmpty) {
-    vscode.window.showWarningMessage("Select the new local-only code before updating a local block.");
+    vscode.window.showWarningMessage(t("selectNewContent"));
     return;
   }
 
   const target = await resolveLocalBlockTarget(node, {
-    title: "Choose a local block to update",
+    title: t("chooseBlockUpdate"),
     activeFileOnly: true,
     preferActiveSelection: true
   });
@@ -505,7 +732,7 @@ async function updateLocalBlockFromSelectionCommand(node?: LocalBlockTreeNode): 
   const relativeFile = toPosixPath(path.relative(target.repoPath, absoluteFile));
   if (relativeFile !== target.block.file) {
     vscode.window.showWarningMessage(
-      `Selection must be inside ${target.block.file} before updating ${target.block.id}.`
+      t("selectionMustBeInside", { file: target.block.file, id: target.block.id })
     );
     return;
   }
@@ -516,7 +743,7 @@ async function updateLocalBlockFromSelectionCommand(node?: LocalBlockTreeNode): 
   const state = await readLocalBlockState(target.repoPath);
   const block = findStoredBlock(state, target.block);
   if (!block) {
-    vscode.window.showWarningMessage(`Local block no longer exists: ${target.block.file}#${target.block.id}`);
+    vscode.window.showWarningMessage(t("blockNoLongerExists", { file: target.block.file, id: target.block.id }));
     refreshLocalBlocksView();
     return;
   }
@@ -534,21 +761,21 @@ async function updateLocalBlockFromSelectionCommand(node?: LocalBlockTreeNode): 
   await installLocalBlockFilter(target.repoPath);
   refreshLocalBlocksView();
 
-  vscode.window.showInformationMessage(`Updated local block from selection: ${block.file}#${block.id}`);
+  vscode.window.showInformationMessage(t("updatedBlockFromSelection", { file: block.file, id: block.id }));
   log(`Updated local block from selection: ${block.file}#${block.id}`);
 }
 
 async function deleteLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void> {
-  const target = await resolveLocalBlockTarget(node, { title: "Choose a local block to delete" });
+  const target = await resolveLocalBlockTarget(node, { title: t("chooseBlockDelete") });
   if (!target) {
     return;
   }
 
   const choice = await vscode.window.showWarningMessage(
-    `Delete local block ${target.block.file}#${target.block.id}?`,
+    t("deleteBlockQuestion", { file: target.block.file, id: target.block.id }),
     { modal: true },
-    "Restore Public and Delete",
-    "Keep File Content and Delete"
+    t("actionRestorePublicAndDelete"),
+    t("actionKeepFileContentAndDelete")
   );
 
   if (!choice) {
@@ -559,11 +786,11 @@ async function deleteLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void>
   ensureOutputVisible();
   await ensureGitRepository(target.repoPath);
 
-  if (choice === "Restore Public and Delete") {
+  if (choice === t("actionRestorePublicAndDelete")) {
     const restoreResult = await restoreSinglePublicBlock(target.repoPath, target.block);
     if (restoreResult === "conflict") {
       vscode.window.showWarningMessage(
-        `Delete stopped: ${target.block.file}#${target.block.id} could not be restored automatically.`
+        t("deleteStopped", { file: target.block.file, id: target.block.id })
       );
       refreshLocalBlocksView();
       return;
@@ -577,7 +804,7 @@ async function deleteLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void>
   );
 
   if (state.blocks.length === before) {
-    vscode.window.showWarningMessage(`Local block no longer exists: ${target.block.file}#${target.block.id}`);
+    vscode.window.showWarningMessage(t("blockNoLongerExists", { file: target.block.file, id: target.block.id }));
     refreshLocalBlocksView();
     return;
   }
@@ -586,7 +813,7 @@ async function deleteLocalBlockCommand(node?: LocalBlockTreeNode): Promise<void>
   await installLocalBlockFilter(target.repoPath);
   refreshLocalBlocksView();
 
-  vscode.window.showInformationMessage(`Deleted local block: ${target.block.file}#${target.block.id}`);
+  vscode.window.showInformationMessage(t("deletedBlock", { file: target.block.file, id: target.block.id }));
   log(`Deleted local block: ${target.block.file}#${target.block.id}`);
 }
 
@@ -599,7 +826,7 @@ async function installPreCommitGuardCommand(): Promise<void> {
   ensureOutputVisible();
   await ensureGitRepository(repoPath);
   await installPreCommitGuard(repoPath);
-  vscode.window.showInformationMessage("Local block pre-commit guard installed.");
+  vscode.window.showInformationMessage(t("preCommitGuardInstalled"));
 }
 
 async function installLocalBlockFilterCommand(): Promise<void> {
@@ -612,7 +839,7 @@ async function installLocalBlockFilterCommand(): Promise<void> {
   await ensureGitRepository(repoPath);
   await installLocalBlockFilter(repoPath);
   refreshLocalBlocksView();
-  vscode.window.showInformationMessage("Local block Git filter installed.");
+  vscode.window.showInformationMessage(t("filterInstalled"));
 }
 
 async function safeSyncWithLocalBlocks(): Promise<void> {
@@ -624,11 +851,11 @@ async function safeSyncWithLocalBlocks(): Promise<void> {
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "Personal Git Process: Safe Sync With Local Blocks",
+      title: t("progressSafeSync"),
       cancellable: false
     },
     async (progress) => {
-      progress.report({ message: "Checking repository state" });
+      progress.report({ message: t("progressCheckingRepo") });
 
       ensureOutputVisible();
       log(`Safe sync with local blocks start: ${repoPath}`);
@@ -643,11 +870,11 @@ async function safeSyncWithLocalBlocks(): Promise<void> {
         return;
       }
 
-      progress.report({ message: "Restoring public versions for local blocks" });
+      progress.report({ message: t("progressRestoringPublic") });
       const restoreResult = await restorePublicVersion(repoPath);
       if (restoreResult.conflicts > 0) {
         vscode.window.showWarningMessage(
-          "Safe sync stopped: some local blocks could not be restored to public versions. See output for details."
+          t("safeSyncRestoreStopped")
         );
         return;
       }
@@ -658,13 +885,13 @@ async function safeSyncWithLocalBlocks(): Promise<void> {
 
       if (hasChanges) {
         const choice = await vscode.window.showWarningMessage(
-          "Detected local changes after local blocks were restored to public versions. Create a stash before syncing?",
+          t("localChangesAfterPublic"),
           { modal: true },
-          "Stash and Continue",
-          "Cancel"
+          t("actionStashAndContinue"),
+          t("actionCancel")
         );
 
-        if (choice !== "Stash and Continue") {
+        if (choice !== t("actionStashAndContinue")) {
           log("Safe sync cancelled because local changes were not stashed.");
           await applyLocalBlocks(repoPath);
           return;
@@ -676,10 +903,10 @@ async function safeSyncWithLocalBlocks(): Promise<void> {
         log(`Created stash ${stashRef}.`);
       }
 
-      progress.report({ message: "Fetching remote updates" });
+      progress.report({ message: t("progressFetching") });
       await git(repoPath, ["fetch", "--all", "--prune"]);
 
-      progress.report({ message: `Running ${strategy} against ${upstream}` });
+      progress.report({ message: t("progressRunningStrategy", { strategy, upstream }) });
       if (strategy === "rebase") {
         await git(repoPath, ["rebase", upstream]);
       } else {
@@ -687,7 +914,7 @@ async function safeSyncWithLocalBlocks(): Promise<void> {
       }
 
       if (stashCreated) {
-        progress.report({ message: "Re-applying stash" });
+        progress.report({ message: t("progressReapplyingStash") });
         try {
           await git(repoPath, ["stash", "apply", stashRef]);
           await git(repoPath, ["stash", "drop", stashRef]);
@@ -698,17 +925,17 @@ async function safeSyncWithLocalBlocks(): Promise<void> {
         }
       }
 
-      progress.report({ message: "Applying local blocks" });
+      progress.report({ message: t("progressApplyingBlocks") });
       const applyResult = await applyLocalBlocks(repoPath);
       refreshLocalBlocksView();
       if (applyResult.conflicts > 0) {
         vscode.window.showWarningMessage(
-          `Sync completed, but ${applyResult.conflicts} local block(s) need manual handling. See output for details.`
+          t("syncCompletedWithConflicts", { conflicts: applyResult.conflicts })
         );
         return;
       }
 
-      vscode.window.showInformationMessage(`Safe sync with local blocks completed on branch ${branch}.`);
+      vscode.window.showInformationMessage(t("safeSyncCompleted", { branch }));
       log(`Safe sync with local blocks finished successfully on ${branch}.`);
     }
   );
@@ -723,11 +950,11 @@ async function syncWorkspace(): Promise<void> {
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "Personal Git Process: Sync Workspace",
+      title: t("progressSync"),
       cancellable: false
     },
     async (progress) => {
-      progress.report({ message: "Checking repository state" });
+      progress.report({ message: t("progressCheckingRepo") });
 
       ensureOutputVisible();
       log(`Sync start: ${repoPath}`);
@@ -748,13 +975,13 @@ async function syncWorkspace(): Promise<void> {
 
       if (hasChanges) {
         const choice = await vscode.window.showWarningMessage(
-          "Detected local changes. Create a stash before syncing?",
+          t("localChangesStashQuestion"),
           { modal: true },
-          "Stash and Continue",
-          "Cancel"
+          t("actionStashAndContinue"),
+          t("actionCancel")
         );
 
-        if (choice !== "Stash and Continue") {
+        if (choice !== t("actionStashAndContinue")) {
           log("Sync cancelled because local changes were not stashed.");
           return;
         }
@@ -765,10 +992,10 @@ async function syncWorkspace(): Promise<void> {
         log(`Created stash ${stashRef}.`);
       }
 
-      progress.report({ message: "Fetching remote updates" });
+      progress.report({ message: t("progressFetching") });
       await git(repoPath, ["fetch", "--all", "--prune"]);
 
-      progress.report({ message: `Running ${strategy} against ${upstream}` });
+      progress.report({ message: t("progressRunningStrategy", { strategy, upstream }) });
       if (strategy === "rebase") {
         await git(repoPath, ["rebase", upstream]);
       } else {
@@ -776,7 +1003,7 @@ async function syncWorkspace(): Promise<void> {
       }
 
       if (stashCreated) {
-        progress.report({ message: "Re-applying stash" });
+        progress.report({ message: t("progressReapplyingStash") });
         try {
           await git(repoPath, ["stash", "apply", stashRef]);
           await git(repoPath, ["stash", "drop", stashRef]);
@@ -787,7 +1014,7 @@ async function syncWorkspace(): Promise<void> {
         }
       }
 
-      vscode.window.showInformationMessage(`Sync completed on branch ${branch}.`);
+      vscode.window.showInformationMessage(t("syncCompleted", { branch }));
       log(`Sync finished successfully on ${branch}.`);
     }
   );
@@ -802,11 +1029,11 @@ async function safePush(): Promise<void> {
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: "Personal Git Process: Safe Push",
+      title: t("progressSafePush"),
       cancellable: false
     },
     async (progress) => {
-      progress.report({ message: "Checking repository state" });
+      progress.report({ message: t("progressCheckingRepo") });
 
       ensureOutputVisible();
       log(`Safe push start: ${repoPath}`);
@@ -816,13 +1043,13 @@ async function safePush(): Promise<void> {
       const dirty = await hasWorkingTreeChanges(repoPath);
 
       if (dirty) {
-        vscode.window.showWarningMessage("Push blocked: working tree has uncommitted changes.");
+        vscode.window.showWarningMessage(t("pushBlockedDirty"));
         log("Push blocked because working tree is dirty.");
         return;
       }
 
       const upstream = await getUpstreamBranch(repoPath);
-      progress.report({ message: "Fetching remote updates" });
+      progress.report({ message: t("progressFetching") });
       await git(repoPath, ["fetch", "--all", "--prune"]);
 
       if (upstream) {
@@ -831,38 +1058,38 @@ async function safePush(): Promise<void> {
 
         if (behind > 0) {
           vscode.window.showWarningMessage(
-            `Push blocked: branch is behind ${upstream} by ${behind} commit(s). Sync first.`
+            t("pushBlockedBehind", { upstream, behind })
           );
           return;
         }
 
         const proceed = await vscode.window.showInformationMessage(
           ahead > 0
-            ? `Push ${ahead} local commit(s) from ${branch} to ${upstream}?`
-            : `No local commits are ahead of ${upstream}. Push anyway?`,
+            ? t("pushAheadQuestion", { ahead, branch, upstream })
+            : t("pushNoAheadQuestion", { upstream }),
           { modal: true },
-          "Push",
-          "Cancel"
+          t("actionPush"),
+          t("actionCancel")
         );
 
-        if (proceed !== "Push") {
+        if (proceed !== t("actionPush")) {
           log("Push cancelled by user.");
           return;
         }
 
-        progress.report({ message: "Pushing to upstream" });
+        progress.report({ message: localizeText("Pushing to upstream", "正在推送到 upstream") });
         await git(repoPath, ["push"]);
-        vscode.window.showInformationMessage(`Push completed for ${branch}.`);
+        vscode.window.showInformationMessage(t("pushCompleted", { branch }));
         log(`Push finished successfully on ${branch}.`);
         return;
       }
 
       const targetRemote = await vscode.window.showInputBox({
-        title: "Set upstream remote",
-        prompt: "Remote name for first push",
+        title: t("setUpstreamRemoteTitle"),
+        prompt: t("setUpstreamRemotePrompt"),
         value: "origin",
         ignoreFocusOut: true,
-        validateInput: (value) => (value.trim() ? undefined : "Remote is required")
+        validateInput: (value) => (value.trim() ? undefined : t("remoteRequired"))
       });
 
       if (!targetRemote) {
@@ -871,20 +1098,20 @@ async function safePush(): Promise<void> {
       }
 
       const proceed = await vscode.window.showInformationMessage(
-        `Push ${branch} and set upstream to ${targetRemote}/${branch}?`,
+        t("pushSetUpstreamQuestion", { branch, remote: targetRemote }),
         { modal: true },
-        "Push",
-        "Cancel"
+        t("actionPush"),
+        t("actionCancel")
       );
 
-      if (proceed !== "Push") {
+      if (proceed !== t("actionPush")) {
         log("Initial push cancelled by user.");
         return;
       }
 
-      progress.report({ message: "Pushing and setting upstream" });
+      progress.report({ message: localizeText("Pushing and setting upstream", "正在推送并设置 upstream") });
       await git(repoPath, ["push", "--set-upstream", targetRemote, branch]);
-      vscode.window.showInformationMessage(`Push completed and upstream set to ${targetRemote}/${branch}.`);
+      vscode.window.showInformationMessage(t("pushUpstreamCompleted", { remote: targetRemote, branch }));
       log(`Push finished successfully on ${branch} with upstream ${targetRemote}/${branch}.`);
     }
   );
@@ -894,7 +1121,7 @@ async function pickRepository(): Promise<string | undefined> {
   const folders = vscode.workspace.workspaceFolders;
 
   if (!folders || folders.length === 0) {
-    vscode.window.showWarningMessage("Open a folder or workspace before running Personal Git Process.");
+    vscode.window.showWarningMessage(t("openFolderFirst"));
     return undefined;
   }
 
@@ -909,7 +1136,7 @@ async function pickRepository(): Promise<string | undefined> {
       path: folder.uri.fsPath
     })),
     {
-      title: "Choose repository folder",
+      title: t("chooseRepositoryFolder"),
       ignoreFocusOut: true
     }
   );
@@ -921,7 +1148,7 @@ async function pickRepositoryForFile(filePath: string): Promise<string | undefin
   const folders = vscode.workspace.workspaceFolders;
 
   if (!folders || folders.length === 0) {
-    vscode.window.showWarningMessage("Open a folder or workspace before running Personal Git Process.");
+    vscode.window.showWarningMessage(t("openFolderFirst"));
     return undefined;
   }
 
@@ -942,7 +1169,7 @@ async function pickRepositoryForFile(filePath: string): Promise<string | undefin
         path: folderPath
       })),
       {
-        title: "Choose repository folder",
+        title: t("chooseRepositoryFolder"),
         ignoreFocusOut: true
       }
     );
@@ -989,11 +1216,11 @@ async function getOrPromptUpstream(repoPath: string, branch: string): Promise<st
   }
 
   const value = await vscode.window.showInputBox({
-    title: "Upstream branch",
-    prompt: "No upstream detected. Enter a branch reference to sync against.",
+    title: t("upstreamBranchTitle"),
+    prompt: t("upstreamBranchPrompt"),
     value: `origin/${branch}`,
     ignoreFocusOut: true,
-    validateInput: (input) => (input.trim() ? undefined : "Upstream branch is required")
+    validateInput: (input) => (input.trim() ? undefined : t("upstreamRequired"))
   });
 
   if (!value) {
@@ -1007,18 +1234,18 @@ async function pickSyncStrategy(): Promise<SyncStrategy | undefined> {
   const selected = await vscode.window.showQuickPick(
     [
       {
-        label: "Rebase",
-        description: "Keep history linear by rebasing onto upstream",
+        label: t("strategyRebase"),
+        description: t("strategyRebaseDescription"),
         value: "rebase" as const
       },
       {
-        label: "Merge",
-        description: "Create a merge commit when needed",
+        label: t("strategyMerge"),
+        description: t("strategyMergeDescription"),
         value: "merge" as const
       }
     ],
     {
-      title: "Choose sync strategy",
+      title: t("chooseSyncStrategy"),
       ignoreFocusOut: true
     }
   );
@@ -1226,8 +1453,8 @@ async function resolveBaseText(
   const gitContent = await readFileFromHead(repoPath, relativeFile);
   if (!gitContent) {
     const value = await vscode.window.showInputBox({
-      title: "Public version for local block",
-      prompt: "This file is not available in HEAD. Enter the public version that should be committed.",
+      title: t("publicVersionTitle"),
+      prompt: t("publicVersionMissingPrompt"),
       value: localText,
       ignoreFocusOut: true
     });
@@ -1242,8 +1469,8 @@ async function resolveBaseText(
   }
 
   const value = await vscode.window.showInputBox({
-    title: "Public version for local block",
-    prompt: "Could not infer the public version from HEAD. Edit the text that should be committed instead.",
+    title: t("publicVersionTitle"),
+    prompt: t("publicVersionInferPrompt"),
     value: localText,
     ignoreFocusOut: true
   });
@@ -1646,15 +1873,15 @@ async function getLocalBlockStatus(repoPath: string, block: LocalBlock): Promise
 function getLocalBlockStatusLabel(status: LocalBlockTreeStatus | undefined): string {
   switch (status) {
     case "local":
-      return "local";
+      return localizeText("local", "本机");
     case "public":
-      return "public";
+      return localizeText("public", "公共");
     case "missing":
-      return "missing";
+      return localizeText("missing", "缺失");
     case "conflict":
-      return "conflict";
+      return localizeText("conflict", "冲突");
     default:
-      return "unknown";
+      return localizeText("unknown", "未知");
   }
 }
 
@@ -1683,8 +1910,8 @@ async function resolveLocalBlockTarget(
 
   const items = await listLocalBlockQuickPickItems(options.activeFileOnly === true);
   if (items.length === 0) {
-    const suffix = options.activeFileOnly ? " in the active file" : "";
-    vscode.window.showWarningMessage(`No local blocks found${suffix}.`);
+    const suffix = options.activeFileOnly ? t("activeFileSuffix") : "";
+    vscode.window.showWarningMessage(t("noLocalBlocksFound", { suffix }));
     return undefined;
   }
 
@@ -1793,11 +2020,11 @@ function suggestBlockId(relativeFile: string): string {
 
 function validateBlockId(value: string): string | undefined {
   if (!value.trim()) {
-    return "Block id is required";
+    return t("validateBlockIdRequired");
   }
 
   if (!/^[a-zA-Z0-9._-]+$/.test(value.trim())) {
-    return "Use only letters, numbers, dot, underscore, or dash";
+    return t("validateBlockIdChars");
   }
 
   return undefined;
@@ -1849,7 +2076,7 @@ function git(repoPath: string, args: string[]): Promise<GitResult> {
         if (error) {
           const message = stderr.trim() || stdout.trim() || error.message;
           const wrapped = new Error(message);
-          vscode.window.showErrorMessage(`Git command failed: ${message}`);
+          vscode.window.showErrorMessage(t("gitCommandFailed", { message }));
           reject(wrapped);
           return;
         }
@@ -1876,7 +2103,7 @@ async function runCommand(name: string, handler: () => Promise<void>): Promise<v
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`${name} failed: ${message}`);
-    vscode.window.showErrorMessage(`${name} failed: ${message}`);
+    vscode.window.showErrorMessage(t("commandFailed", { name, message }));
   }
 }
 
