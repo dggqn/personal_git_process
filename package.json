@@ -1,80 +1,85 @@
-{
-  "name": "personal-git-process",
-  "displayName": "Personal Git Process",
-  "description": "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
-  "version": "0.0.4",
-  "publisher": "jdx-plugin-01",
-  "license": "MIT",
-  "icon": "imgs/git.png",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/dggqn/personal_git_process.git"
-  },
-  "engines": {
-    "vscode": "^1.90.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onCommand:personalGitProcess.syncWorkspace",
-    "onCommand:personalGitProcess.safePush",
-    "onCommand:personalGitProcess.protectSelection",
-    "onCommand:personalGitProcess.applyLocalBlocks",
-    "onCommand:personalGitProcess.showPublicVersion",
-    "onCommand:personalGitProcess.safeSyncLocalBlocks",
-    "onCommand:personalGitProcess.installPreCommitGuard",
-    "onCommand:personalGitProcess.openOutput"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "personalGitProcess.syncWorkspace",
-        "title": "Personal Git Process: Sync Workspace"
-      },
-      {
-        "command": "personalGitProcess.safePush",
-        "title": "Personal Git Process: Safe Push"
-      },
-      {
-        "command": "personalGitProcess.protectSelection",
-        "title": "Personal Git Process: Protect Selection as Local Block"
-      },
-      {
-        "command": "personalGitProcess.applyLocalBlocks",
-        "title": "Personal Git Process: Apply Local Blocks"
-      },
-      {
-        "command": "personalGitProcess.showPublicVersion",
-        "title": "Personal Git Process: Show Public Version"
-      },
-      {
-        "command": "personalGitProcess.safeSyncLocalBlocks",
-        "title": "Personal Git Process: Safe Sync With Local Blocks"
-      },
-      {
-        "command": "personalGitProcess.installPreCommitGuard",
-        "title": "Personal Git Process: Install Local Block Pre-Commit Guard"
-      },
-      {
-        "command": "personalGitProcess.openOutput",
-        "title": "Personal Git Process: Open Output"
-      }
-    ]
-  },
-  "scripts": {
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "lint": "tsc --noEmit -p ./",
-    "package": "vsce package",
-    "publish": "vsce publish",
-    "pubnish": "npm run publish"
-  },
-  "devDependencies": {
-    "@types/node": "^20.16.5",
-    "@types/vscode": "^1.90.0",
-    "typescript": "^5.6.2",
-    "@vscode/vsce": "^3.2.1"
-  }
+﻿{
+    "name":  "personal-git-process",
+    "displayName":  "Personal Git Process",
+    "description":  "Personal Git workflow helpers for safely syncing and pushing from VS Code.",
+    "version":  "0.0.5",
+    "publisher":  "jdx-plugin-01",
+    "license":  "MIT",
+    "icon":  "imgs/git.png",
+    "repository":  {
+                       "type":  "git",
+                       "url":  "https://github.com/dggqn/personal_git_process.git"
+                   },
+    "engines":  {
+                    "vscode":  "^1.90.0"
+                },
+    "categories":  [
+                       "Other"
+                   ],
+    "activationEvents":  [
+                             "onCommand:personalGitProcess.syncWorkspace",
+                             "onCommand:personalGitProcess.safePush",
+                             "onCommand:personalGitProcess.protectSelection",
+                             "onCommand:personalGitProcess.applyLocalBlocks",
+                             "onCommand:personalGitProcess.showPublicVersion",
+                             "onCommand:personalGitProcess.safeSyncLocalBlocks",
+                             "onCommand:personalGitProcess.installLocalBlockFilter",
+                             "onCommand:personalGitProcess.installPreCommitGuard",
+                             "onCommand:personalGitProcess.openOutput"
+                         ],
+    "main":  "./out/extension.js",
+    "contributes":  {
+                        "commands":  [
+                                         {
+                                             "command":  "personalGitProcess.syncWorkspace",
+                                             "title":  "Personal Git Process: Sync Workspace"
+                                         },
+                                         {
+                                             "command":  "personalGitProcess.safePush",
+                                             "title":  "Personal Git Process: Safe Push"
+                                         },
+                                         {
+                                             "command":  "personalGitProcess.protectSelection",
+                                             "title":  "Personal Git Process: Protect Selection as Local Block"
+                                         },
+                                         {
+                                             "command":  "personalGitProcess.applyLocalBlocks",
+                                             "title":  "Personal Git Process: Apply Local Blocks"
+                                         },
+                                         {
+                                             "command":  "personalGitProcess.showPublicVersion",
+                                             "title":  "Personal Git Process: Show Public Version"
+                                         },
+                                         {
+                                             "command":  "personalGitProcess.safeSyncLocalBlocks",
+                                             "title":  "Personal Git Process: Safe Sync With Local Blocks"
+                                         },
+                                         {
+                                             "command":  "personalGitProcess.installLocalBlockFilter",
+                                             "title":  "Personal Git Process: Install Local Block Git Filter"
+                                         },
+                                         {
+                                             "command":  "personalGitProcess.installPreCommitGuard",
+                                             "title":  "Personal Git Process: Install Local Block Pre-Commit Guard"
+                                         },
+                                         {
+                                             "command":  "personalGitProcess.openOutput",
+                                             "title":  "Personal Git Process: Open Output"
+                                         }
+                                     ]
+                    },
+    "scripts":  {
+                    "compile":  "tsc -p ./",
+                    "watch":  "tsc -watch -p ./",
+                    "lint":  "tsc --noEmit -p ./",
+                    "package":  "vsce package",
+                    "publish":  "vsce publish",
+                    "pubnish":  "npm run publish"
+                },
+    "devDependencies":  {
+                            "@types/node":  "^20.16.5",
+                            "@types/vscode":  "^1.90.0",
+                            "typescript":  "^5.6.2",
+                            "@vscode/vsce":  "^3.2.1"
+                        }
 }

@@ -1,4 +1,4 @@
-import { execFile } from "child_process";
+﻿import { execFile } from "child_process";
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -55,6 +55,12 @@ const HOOKS_DIR = "hooks";
 const PRE_COMMIT_FILE = "pre-commit";
 const CONTEXT_LINES = 2;
 const ANCHOR_CHARS = 300;
+const FILTER_NAME = "personalGitProcessLocalBlocks";
+const FILTER_SCRIPT_FILE = "filter.cjs";
+const INFO_DIR = "info";
+const ATTRIBUTES_FILE = "attributes";
+const ATTRIBUTES_MARKER_BEGIN = "# personal-git-process local-blocks begin";
+const ATTRIBUTES_MARKER_END = "# personal-git-process local-blocks end";
 
 const output = vscode.window.createOutputChannel("Personal Git Process");
 
@@ -83,6 +89,9 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     vscode.commands.registerCommand("personalGitProcess.safeSyncLocalBlocks", () =>
       runCommand("Safe Sync With Local Blocks", safeSyncWithLocalBlocks)
+    ),
+    vscode.commands.registerCommand("personalGitProcess.installLocalBlockFilter", () =>
+      runCommand("Install Local Block Git Filter", installLocalBlockFilterCommand)
     ),
     vscode.commands.registerCommand("personalGitProcess.installPreCommitGuard", () =>
       runCommand("Install Local Block Pre-Commit Guard", installPreCommitGuardCommand)
@@ -167,6 +176,7 @@ async function protectSelectionAsLocalBlock(): Promise<void> {
 
   state.blocks.push(block);
   await writeLocalBlockState(repoPath, state);
+  await installLocalBlockFilter(repoPath);
 
   vscode.window.showInformationMessage(`Local block saved: ${relativeFile}#${block.id}`);
   log(`Local block saved: ${relativeFile}#${block.id}`);
@@ -222,6 +232,18 @@ async function installPreCommitGuardCommand(): Promise<void> {
   await ensureGitRepository(repoPath);
   await installPreCommitGuard(repoPath);
   vscode.window.showInformationMessage("Local block pre-commit guard installed.");
+}
+
+async function installLocalBlockFilterCommand(): Promise<void> {
+  const repoPath = await pickRepository();
+  if (!repoPath) {
+    return;
+  }
+
+  ensureOutputVisible();
+  await ensureGitRepository(repoPath);
+  await installLocalBlockFilter(repoPath);
+  vscode.window.showInformationMessage("Local block Git filter installed.");
 }
 
 async function safeSyncWithLocalBlocks(): Promise<void> {
@@ -818,12 +840,16 @@ function mapWorkspaceSelectionToHeadRange(
 
   const before = workspaceContent.slice(0, selectionOffset);
   const after = workspaceContent.slice(selectionOffset + localText.length);
-  const beforeAnchor = getAnchor(before, "end");
-  const afterAnchor = getAnchor(after, "start");
+  const beforeAnchors = getAnchors(before, "end");
+  const afterAnchors = getAnchors(after, "start");
 
-  if (beforeAnchor && afterAnchor) {
-    const beforeIndex = headContent.indexOf(beforeAnchor);
-    if (beforeIndex >= 0) {
+  for (const beforeAnchor of beforeAnchors) {
+    for (const afterAnchor of afterAnchors) {
+      const beforeIndex = headContent.indexOf(beforeAnchor);
+      if (beforeIndex < 0) {
+        continue;
+      }
+
       const start = beforeIndex + beforeAnchor.length;
       const afterIndex = headContent.indexOf(afterAnchor, start);
       if (afterIndex >= start) {
@@ -832,14 +858,14 @@ function mapWorkspaceSelectionToHeadRange(
     }
   }
 
-  if (beforeAnchor && after.length === 0) {
+  for (const beforeAnchor of beforeAnchors) {
     const beforeIndex = headContent.lastIndexOf(beforeAnchor);
     if (beforeIndex >= 0) {
       return { start: beforeIndex + beforeAnchor.length, end: headContent.length };
     }
   }
 
-  if (afterAnchor && before.length === 0) {
+  for (const afterAnchor of afterAnchors) {
     const afterIndex = headContent.indexOf(afterAnchor);
     if (afterIndex >= 0) {
       return { start: 0, end: afterIndex };
@@ -854,12 +880,162 @@ function mapWorkspaceSelectionToHeadRange(
   return undefined;
 }
 
+function getAnchors(text: string, side: "start" | "end"): string[] {
+  const anchors = [getAnchor(text, side)];
+  const compactAnchor = getCompactLineAnchor(text, side);
+  if (compactAnchor) {
+    anchors.push(compactAnchor);
+  }
+
+  return [...new Set(anchors.filter((anchor) => anchor.length > 0))];
+}
+
 function getAnchor(text: string, side: "start" | "end"): string {
   if (side === "start") {
     return text.slice(0, ANCHOR_CHARS);
   }
 
   return text.slice(Math.max(0, text.length - ANCHOR_CHARS));
+}
+
+function getCompactLineAnchor(text: string, side: "start" | "end"): string {
+  const lines = text.split(/\r?\n/);
+
+  if (side === "start") {
+    const selected = lines.filter((line) => line.trim().length > 0).slice(0, CONTEXT_LINES);
+    return selected.join("\n");
+  }
+
+  const selected = lines.filter((line) => line.trim().length > 0).slice(-CONTEXT_LINES);
+  return selected.join("\n");
+}
+
+async function installLocalBlockFilter(repoPath: string): Promise<void> {
+  const state = await readLocalBlockState(repoPath);
+  const files = [...new Set(state.blocks.map((block) => block.file))].sort();
+
+  await writeFilterScript(repoPath);
+  await configureFilter(repoPath);
+  await updateInfoAttributes(repoPath, files);
+
+  log(`Installed local block Git filter for ${files.length} file(s).`);
+}
+
+async function writeFilterScript(repoPath: string): Promise<void> {
+  const dirPath = await getLocalBlocksDir(repoPath);
+  await fs.mkdir(dirPath, { recursive: true });
+  await fs.writeFile(path.join(dirPath, FILTER_SCRIPT_FILE), buildFilterScript(), "utf8");
+}
+
+async function configureFilter(repoPath: string): Promise<void> {
+  const scriptPath = path.join(await getLocalBlocksDir(repoPath), FILTER_SCRIPT_FILE);
+  const command = `node ${quoteForGitConfig(scriptPath)} %f`;
+
+  await git(repoPath, ["config", `filter.${FILTER_NAME}.clean`, command]);
+  await git(repoPath, ["config", `filter.${FILTER_NAME}.smudge`, command]);
+  await git(repoPath, ["config", `filter.${FILTER_NAME}.required`, "false"]);
+}
+
+async function updateInfoAttributes(repoPath: string, files: string[]): Promise<void> {
+  const gitDir = await getGitDir(repoPath);
+  const infoDir = path.join(gitDir, INFO_DIR);
+  await fs.mkdir(infoDir, { recursive: true });
+
+  const attributesPath = path.join(infoDir, ATTRIBUTES_FILE);
+  let existing = "";
+  try {
+    existing = await fs.readFile(attributesPath, "utf8");
+  } catch {
+    // A repository may not have .git/info/attributes yet.
+  }
+
+  const block = [
+    ATTRIBUTES_MARKER_BEGIN,
+    ...files.map((file) => `${escapeAttributePattern(file)} filter=${FILTER_NAME}`),
+    ATTRIBUTES_MARKER_END
+  ].join("\n");
+
+  const markerPattern = new RegExp(
+    `${escapeRegExp(ATTRIBUTES_MARKER_BEGIN)}[\\s\\S]*?${escapeRegExp(ATTRIBUTES_MARKER_END)}\\r?\\n?`,
+    "m"
+  );
+
+  const cleaned = existing.replace(markerPattern, "").trimEnd();
+  const next = cleaned.length > 0 ? `${cleaned}\n\n${block}\n` : `${block}\n`;
+  await fs.writeFile(attributesPath, next, "utf8");
+}
+
+function buildFilterScript(): string {
+  return `#!/usr/bin/env node
+const fs = require('fs');
+const path = require('path');
+
+function readStdin() {
+  return fs.readFileSync(0, 'utf8');
+}
+
+function loadState() {
+  const statePath = path.join(__dirname, 'state.json');
+  if (!fs.existsSync(statePath)) {
+    return { blocks: [] };
+  }
+
+  try {
+    const raw = fs.readFileSync(statePath, 'utf8').replace(/^\\uFEFF/, '');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed.blocks) ? parsed : { blocks: [] };
+  } catch (_) {
+    return { blocks: [] };
+  }
+}
+
+function normalizeFile(value) {
+  return String(value || '').replace(/\\\\/g, '/');
+}
+
+function transform(text, file) {
+  const state = loadState();
+  const target = normalizeFile(file);
+
+  for (const block of state.blocks) {
+    if (!block || normalizeFile(block.file) !== target) {
+      continue;
+    }
+
+    if (!block.localText || block.localText === block.baseText) {
+      continue;
+    }
+
+    if (text.includes(block.localText)) {
+      text = text.split(block.localText).join(block.baseText || '');
+    }
+  }
+
+  return text;
+}
+
+const input = readStdin();
+const output = transform(input, process.argv[2]);
+process.stdout.write(output);
+`;
+}
+
+
+function quoteForGitConfig(value: string): string {
+  return `"${value.replace(/\\/g, "/").replace(/"/g, '\\"')}"`;
+}
+
+function escapeAttributePattern(value: string): string {
+  const normalized = toPosixPath(value);
+  if (/[\s#"]/.test(normalized)) {
+    return `"${normalized.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  }
+
+  return normalized;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function installPreCommitGuard(repoPath: string): Promise<void> {
@@ -1121,3 +1297,4 @@ async function runCommand(name: string, handler: () => Promise<void>): Promise<v
     vscode.window.showErrorMessage(`${name} failed: ${message}`);
   }
 }
+
